@@ -35,7 +35,7 @@ export const PageLayout: React.FC<PageLayoutProps> = ({ children }) => {
         </Container>
       </Navbar>
       
-      <Container className="mb-4">
+      <Container fluid className="mb-4">
         {children}
       </Container>
     </>

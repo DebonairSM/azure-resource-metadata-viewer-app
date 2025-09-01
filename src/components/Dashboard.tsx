@@ -10,7 +10,8 @@ import {
   Row,
   Col,
   Dropdown,
-  DropdownButton
+  DropdownButton,
+  InputGroup
 } from 'react-bootstrap';
 import { useMsal } from '@azure/msal-react';
 import type { AccountInfo, AuthenticationResult } from '@azure/msal-browser';
@@ -52,8 +53,37 @@ export const Dashboard: React.FC = () => {
   const [loadingAccounts, setLoadingAccounts] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [items, setItems] = useState<ResourceItem[]>([]);
+  
+  // State for filtering
+  const [nameFilter, setNameFilter] = useState('');
+  const [typeFilter, setTypeFilter] = useState('');
+  const [resourceGroupFilter, setResourceGroupFilter] = useState('');
+  const [locationFilter, setLocationFilter] = useState('');
+  
+  // State for view mode
+  const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
 
   const canQuery = useMemo(() => !!selectedSubscription && !!account, [selectedSubscription, account]);
+
+  // Filter items based on current filter values
+  const filteredItems = useMemo(() => {
+    return items.filter(item => {
+      const matchesName = !nameFilter || item.name.toLowerCase().includes(nameFilter.toLowerCase());
+      const matchesType = !typeFilter || item.type.toLowerCase().includes(typeFilter.toLowerCase());
+      const matchesResourceGroup = !resourceGroupFilter || (item.resourceGroup && item.resourceGroup.toLowerCase().includes(resourceGroupFilter.toLowerCase()));
+      const matchesLocation = !locationFilter || (item.location && item.location.toLowerCase().includes(locationFilter.toLowerCase()));
+      
+      return matchesName && matchesType && matchesResourceGroup && matchesLocation;
+    });
+  }, [items, nameFilter, typeFilter, resourceGroupFilter, locationFilter]);
+
+  // Clear filters when new data is loaded
+  const clearFilters = () => {
+    setNameFilter('');
+    setTypeFilter('');
+    setResourceGroupFilter('');
+    setLocationFilter('');
+  };
 
   // Load Azure accounts and subscriptions on component mount
   useEffect(() => {
@@ -174,6 +204,7 @@ export const Dashboard: React.FC = () => {
       });
 
       setItems(withOwners);
+      clearFilters(); // Clear filters when new data is loaded
     } catch (e: unknown) {
       const errorMessage = e instanceof Error ? e.message : 'Unknown error';
       
@@ -325,70 +356,217 @@ export const Dashboard: React.FC = () => {
       {items.length > 0 && (
         <Card>
           <Card.Header>
-            <h5 className="mb-0">
-              Resources in {selectedSubscription?.name} ({items.length})
-            </h5>
-            <small className="text-muted">
-              Tenant: {selectedTenant?.displayName} • Subscription ID: {selectedSubscription?.id}
-            </small>
+            <Row className="align-items-center">
+              <Col>
+                <h5 className="mb-0">
+                  Resources in {selectedSubscription?.name} ({filteredItems.length} of {items.length})
+                </h5>
+                <small className="text-muted">
+                  Tenant: {selectedTenant?.displayName} • Subscription ID: {selectedSubscription?.id}
+                </small>
+              </Col>
+              <Col xs="auto">
+                <div className="d-flex gap-2">
+                  <Button 
+                    variant={viewMode === 'table' ? 'primary' : 'outline-primary'}
+                    size="sm"
+                    onClick={() => setViewMode('table')}
+                  >
+                    Table
+                  </Button>
+                  <Button 
+                    variant={viewMode === 'cards' ? 'primary' : 'outline-primary'}
+                    size="sm"
+                    onClick={() => setViewMode('cards')}
+                  >
+                    Cards
+                  </Button>
+                  <Button 
+                    variant="outline-secondary" 
+                    size="sm" 
+                    onClick={clearFilters}
+                    disabled={!nameFilter && !typeFilter && !resourceGroupFilter && !locationFilter}
+                  >
+                    Clear Filters
+                  </Button>
+                </div>
+              </Col>
+            </Row>
           </Card.Header>
-          <Card.Body className="p-0">
-            <div className="table-responsive">
-              <Table striped hover className="mb-0">
-                <thead className="table-light">
-                  <tr>
-                    <th>Name</th>
-                    <th>Type</th>
-                    <th>Resource Group</th>
-                    <th>Location</th>
-                    <th>Owners</th>
-                    <th>Tags</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {items.map(item => (
-                    <tr key={item.id}>
-                      <td>
-                        <strong>{item.name}</strong>
-                      </td>
-                      <td>
-                        <code>{item.type}</code>
-                      </td>
-                      <td>
-                        {item.resourceGroup ? (
-                          <Badge bg="info">{item.resourceGroup}</Badge>
-                        ) : (
-                          <span className="text-muted">—</span>
-                        )}
-                      </td>
-                      <td>
-                        {item.location ? (
-                          <Badge bg="secondary">{item.location}</Badge>
-                        ) : (
-                          <span className="text-muted">—</span>
-                        )}
-                      </td>
-                      <td>
-                        {item.owners && item.owners.length > 0 ? (
-                          <div className="d-flex flex-wrap gap-1">
-                            {item.owners.map((owner, index) => (
-                              <Badge key={index} bg="success" className="border border-success text-success bg-transparent">
-                                {owner}
-                              </Badge>
-                            ))}
-                          </div>
-                        ) : (
-                          <span className="text-muted">—</span>
-                        )}
-                      </td>
-                      <td style={{ maxWidth: '300px' }}>
-                        {renderTags(item.tags)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </Table>
+          <Card.Body>
+            {/* Filters */}
+            <div className="filter-section">
+              <Row className="g-3">
+              <Col md={3}>
+                <Form.Group>
+                  <Form.Label>Filter by Name</Form.Label>
+                  <Form.Control
+                    type="text"
+                    placeholder="Search by name..."
+                    value={nameFilter}
+                    onChange={(e) => setNameFilter(e.target.value)}
+                    size="sm"
+                  />
+                </Form.Group>
+              </Col>
+              <Col md={3}>
+                <Form.Group>
+                  <Form.Label>Filter by Type</Form.Label>
+                  <Form.Control
+                    type="text"
+                    placeholder="Search by type..."
+                    value={typeFilter}
+                    onChange={(e) => setTypeFilter(e.target.value)}
+                    size="sm"
+                  />
+                </Form.Group>
+              </Col>
+              <Col md={3}>
+                <Form.Group>
+                  <Form.Label>Filter by Resource Group</Form.Label>
+                  <Form.Control
+                    type="text"
+                    placeholder="Search by resource group..."
+                    value={resourceGroupFilter}
+                    onChange={(e) => setResourceGroupFilter(e.target.value)}
+                    size="sm"
+                  />
+                </Form.Group>
+              </Col>
+              <Col md={3}>
+                <Form.Group>
+                  <Form.Label>Filter by Location</Form.Label>
+                  <Form.Control
+                    type="text"
+                    placeholder="Search by location..."
+                    value={locationFilter}
+                    onChange={(e) => setLocationFilter(e.target.value)}
+                    size="sm"
+                  />
+                </Form.Group>
+              </Col>
+              </Row>
             </div>
+
+            {/* Results Display */}
+            {viewMode === 'table' ? (
+              <div className="table-responsive">
+                <Table striped hover className="mb-0 table-sm">
+                  <thead className="table-light">
+                    <tr>
+                      <th style={{ width: '20%' }}>Name</th>
+                      <th style={{ width: '25%' }}>Type</th>
+                      <th style={{ width: '15%' }}>Resource Group</th>
+                      <th style={{ width: '10%' }}>Location</th>
+                      <th style={{ width: '15%' }}>Owners</th>
+                      <th style={{ width: '15%' }}>Tags</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredItems.map(item => (
+                      <tr key={item.id}>
+                        <td>
+                          <div className="text-break" style={{ maxWidth: '200px' }}>
+                            <strong>{item.name}</strong>
+                          </div>
+                        </td>
+                        <td>
+                          <div className="text-break" style={{ maxWidth: '250px' }}>
+                            <code className="text-primary small">{item.type}</code>
+                          </div>
+                        </td>
+                        <td>
+                          {item.resourceGroup ? (
+                            <Badge bg="info" className="text-break small" style={{ maxWidth: '150px' }}>
+                              {item.resourceGroup}
+                            </Badge>
+                          ) : (
+                            <span className="text-muted">—</span>
+                          )}
+                        </td>
+                        <td>
+                          {item.location ? (
+                            <Badge bg="secondary small">{item.location}</Badge>
+                          ) : (
+                            <span className="text-muted">—</span>
+                          )}
+                        </td>
+                        <td>
+                          {item.owners && item.owners.length > 0 ? (
+                            <div className="d-flex flex-wrap gap-1">
+                              {item.owners.map((owner, index) => (
+                                <Badge key={index} bg="success" className="border border-success text-success bg-transparent text-break small" style={{ maxWidth: '120px' }}>
+                                  {owner}
+                                </Badge>
+                              ))}
+                            </div>
+                          ) : (
+                            <span className="text-muted">—</span>
+                          )}
+                        </td>
+                        <td>
+                          <div style={{ maxWidth: '200px' }}>
+                            {renderTags(item.tags)}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </Table>
+              </div>
+            ) : (
+              <Row className="g-3">
+                {filteredItems.map(item => (
+                  <Col key={item.id} md={6} lg={4}>
+                    <Card className="h-100">
+                      <Card.Body>
+                        <Card.Title className="h6 text-break">{item.name}</Card.Title>
+                        <div className="mb-2">
+                          <code className="text-primary small">{item.type}</code>
+                        </div>
+                        <div className="mb-2">
+                          {item.resourceGroup && (
+                            <Badge bg="info" className="me-1">{item.resourceGroup}</Badge>
+                          )}
+                          {item.location && (
+                            <Badge bg="secondary">{item.location}</Badge>
+                          )}
+                        </div>
+                        {item.owners && item.owners.length > 0 && (
+                          <div className="mb-2">
+                            <small className="text-muted">Owners:</small>
+                            <div className="d-flex flex-wrap gap-1 mt-1">
+                              {item.owners.map((owner, index) => (
+                                <Badge key={index} bg="success" className="border border-success text-success bg-transparent small">
+                                  {owner}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {item.tags && Object.keys(item.tags).length > 0 && (
+                          <div>
+                            <small className="text-muted">Tags:</small>
+                            <div className="mt-1">
+                              {renderTags(item.tags)}
+                            </div>
+                          </div>
+                        )}
+                      </Card.Body>
+                    </Card>
+                  </Col>
+                ))}
+              </Row>
+            )}
+
+            {filteredItems.length === 0 && items.length > 0 && (
+              <div className="text-center text-muted py-4">
+                <p className="mb-0">No resources match the current filters.</p>
+                <Button variant="link" size="sm" onClick={clearFilters} className="p-0">
+                  Clear all filters
+                </Button>
+              </div>
+            )}
           </Card.Body>
         </Card>
       )}

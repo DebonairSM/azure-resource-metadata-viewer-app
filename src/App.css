@@ -1,7 +1,7 @@
 #root {
   width: 100%;
   margin: 0;
-  padding: 2rem;
+  padding: 0 2rem 2rem 2rem;
   text-align: center;
 }
 
@@ -108,7 +108,7 @@
   background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
   border-bottom: 1px solid #e2e8f0;
   padding: 1.5rem 0;
-  margin-bottom: 2rem;
+  margin: 0 0 2rem 0;
   position: relative;
 }
 
@@ -203,7 +203,7 @@
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   padding: 1rem;
-  min-width: 280px;
+  min-width: 320px;
   z-index: 1000;
 }
 
@@ -240,10 +240,63 @@
   border-radius: 4px;
   font-size: 0.75rem;
   border: 1px solid #e2e8f0;
-  word-break: break-all;
-  white-space: normal;
+  white-space: nowrap;
   display: inline-block;
   max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.permissions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-top: 0.25rem;
+}
+
+.permission-badge {
+  background: #dbeafe;
+  color: #1e40af;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  border: 1px solid #bfdbfe;
+  display: inline-block;
+  max-width: 100%;
+  word-break: break-word;
+}
+
+/* Sophisticated Sign In Button Styling */
+.signin-container {
+  position: relative;
+}
+
+.signin-button {
+  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.2);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.signin-button:hover {
+  background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(59, 130, 246, 0.3);
+}
+
+.signin-button:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.2);
 }
 
 /* Sophisticated Sign Out Styling */

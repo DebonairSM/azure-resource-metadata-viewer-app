@@ -257,7 +257,7 @@ export const Dashboard: React.FC = () => {
       <div className="d-flex flex-wrap gap-1">
         {Object.entries(tags).map(([k, v]) => (
           <Badge key={k} bg="secondary" className="text-wrap">
-            {k}: {v}
+            <strong>{k}:</strong> {v}
           </Badge>
         ))}
       </div>
@@ -494,7 +494,7 @@ export const Dashboard: React.FC = () => {
                             <Badge 
                               bg="info" 
                               className="text-break small" 
-                              style={{ cursor: 'pointer', whiteSpace: 'normal', border: '2px solid #1e40af' }}
+                              style={{ cursor: 'pointer', whiteSpace: 'normal', border: '1px solid #1e40af' }}
                               onClick={() => {
                                 const url = generateResourceGroupUrl(selectedSubscription?.id || '', item.resourceGroup!);
                                 window.open(url, '_blank', 'noopener,noreferrer');

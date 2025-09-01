@@ -1,5 +1,4 @@
 import React from 'react';
-import { DropdownButton, Dropdown } from 'react-bootstrap';
 import { useMsal } from '@azure/msal-react';
 import { ARM_SCOPE, GRAPH_SCOPES, forceFreshAuthentication } from '../auth/msalConfig';
 
@@ -34,25 +33,13 @@ export const SignInButton: React.FC = () => {
   };
 
   return (
-    <DropdownButton
-      variant="outline-light"
-      className="ms-2"
-      drop="start"
-      title="Sign In"
-    >
-      <Dropdown.Item as="button" onClick={() => handleLogin('popup')}>
-        Sign in using Popup
-      </Dropdown.Item>
-      <Dropdown.Item as="button" onClick={() => handleLogin('redirect')}>
-        Sign in using Redirect
-      </Dropdown.Item>
-      <Dropdown.Divider />
-      <Dropdown.Item as="button" onClick={() => handleLogin('popup', true)}>
-        🔄 Fresh Sign In (Popup)
-      </Dropdown.Item>
-      <Dropdown.Item as="button" onClick={() => handleLogin('redirect', true)}>
-        🔄 Fresh Sign In (Redirect)
-      </Dropdown.Item>
-    </DropdownButton>
+    <div className="signin-container">
+      <button 
+        className="signin-button"
+        onClick={() => handleLogin('popup')}
+      >
+        Sign In
+      </button>
+    </div>
   );
 };

@@ -80,11 +80,8 @@ export const getMsalInstanceForTenant = async (tenantId: string) => {
 // Function to clear MSAL cache and force fresh authentication
 export const clearMsalCache = async () => {
 	try {
-		// Clear all accounts from cache
-		const accounts = msalInstance.getAllAccounts()
-		accounts.forEach(account => {
-			msalInstance.removeAccount(account)
-		})
+		// Note: removeAccount method is not available in current MSAL version
+		// We'll clear the cache manually via localStorage/sessionStorage
 		
 		// Clear localStorage cache
 		const keys = Object.keys(localStorage)

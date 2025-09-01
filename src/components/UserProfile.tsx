@@ -1,8 +1,9 @@
-import { NavDropdown } from 'react-bootstrap';
+import { useState } from 'react';
 import { useMsal } from '@azure/msal-react';
 
 export const UserProfile: React.FC = () => {
   const { accounts } = useMsal();
+  const [isOpen, setIsOpen] = useState(false);
   const account = accounts[0];
 
   if (!account) {
@@ -13,20 +14,34 @@ export const UserProfile: React.FC = () => {
   const email = account.username || '';
 
   return (
-    <NavDropdown
-      title={displayName}
-      id="user-profile-dropdown"
-      className="text-light"
-    >
-      <NavDropdown.Item disabled>
-        <small className="text-muted">Signed in as</small><br />
-        <strong>{email}</strong>
-      </NavDropdown.Item>
-      <NavDropdown.Divider />
-      <NavDropdown.Item disabled>
-        <small className="text-muted">Account ID</small><br />
-        <code className="small">{account.localAccountId}</code>
-      </NavDropdown.Item>
-    </NavDropdown>
+    <div className="user-profile-container">
+      <button 
+        className="user-profile-button"
+        onClick={() => setIsOpen(!isOpen)}
+        onBlur={() => setTimeout(() => setIsOpen(false), 200)}
+      >
+        <div className="user-avatar">
+          {displayName.charAt(0).toUpperCase()}
+        </div>
+        <span className="user-name">{displayName}</span>
+      </button>
+      
+      {isOpen && (
+        <div className="user-profile-dropdown">
+          <div className="user-info">
+            <div className="user-info-item">
+              <small className="user-info-label">Signed in as</small>
+              <div className="user-info-value">{email}</div>
+            </div>
+            <div className="user-info-item">
+              <small className="user-info-label">Account ID</small>
+              <div className="user-info-value">
+                <code>{account.localAccountId}</code>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   );
 };

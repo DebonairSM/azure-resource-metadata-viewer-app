@@ -50,6 +50,13 @@ npm run build
 npm run preview
 ```
 
+## Documentation
+
+For detailed setup and configuration instructions, see the documentation in the `docs/` directory:
+
+- **[Authentication Setup](docs/AUTHENTICATION-SETUP.md)** - Complete guide for configuring Azure AD authentication
+- **[Multi-Tenant Setup](docs/MULTI-TENANT-SETUP.md)** - Guide for working with multiple Azure tenants and companies
+
 ## Architecture
 
 ### Components

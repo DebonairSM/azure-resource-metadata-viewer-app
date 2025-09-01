@@ -1,5 +1,5 @@
 import React from 'react';
-import { Navbar, Container, Nav } from 'react-bootstrap';
+import { Container } from 'react-bootstrap';
 import { useIsAuthenticated } from '@azure/msal-react';
 import { SignInButton } from './SignInButton';
 import { SignOutButton } from './SignOutButton';
@@ -14,14 +14,13 @@ export const PageLayout: React.FC<PageLayoutProps> = ({ children }) => {
 
   return (
     <>
-      <Navbar bg="primary" variant="dark" expand="lg" className="mb-4">
+      <div className="sophisticated-header">
         <Container>
-          <Navbar.Brand href="/">
-            Azure Resource Metadata Viewer
-          </Navbar.Brand>
-          <Navbar.Toggle aria-controls="basic-navbar-nav" />
-          <Navbar.Collapse id="basic-navbar-nav" className="justify-content-end">
-            <Nav className="ms-auto">
+          <div className="header-content">
+            <div className="header-brand">
+              <h1 className="header-title">Azure Resource Metadata Viewer</h1>
+            </div>
+            <div className="header-actions">
               {isAuthenticated ? (
                 <>
                   <UserProfile />
@@ -30,14 +29,14 @@ export const PageLayout: React.FC<PageLayoutProps> = ({ children }) => {
               ) : (
                 <SignInButton />
               )}
-            </Nav>
-          </Navbar.Collapse>
+            </div>
+          </div>
         </Container>
-      </Navbar>
+      </div>
       
-      <Container fluid className="mb-4">
+      <div className="main-content">
         {children}
-      </Container>
+      </div>
     </>
   );
 };

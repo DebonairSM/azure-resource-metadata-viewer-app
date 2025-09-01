@@ -10,8 +10,7 @@ import {
   Row,
   Col,
   Dropdown,
-  DropdownButton,
-  InputGroup
+  DropdownButton
 } from 'react-bootstrap';
 import { useMsal } from '@azure/msal-react';
 import type { AccountInfo, AuthenticationResult } from '@azure/msal-browser';
@@ -29,6 +28,23 @@ interface ResourceItem {
   tags?: Record<string, string>;
   owners?: string[];
 }
+
+// Helper functions to generate Azure portal URLs
+const generateAzurePortalUrl = (resourceId: string, action?: string): string => {
+  const baseUrl = 'https://portal.azure.com';
+  
+  if (action === 'delete') {
+    return `${baseUrl}/#@/resource${resourceId}/delete`;
+  }
+  
+  return `${baseUrl}/#@/resource${resourceId}`;
+};
+
+const generateResourceGroupUrl = (subscriptionId: string, resourceGroupName: string): string => {
+  const baseUrl = 'https://portal.azure.com';
+  const resourceId = `/subscriptions/${subscriptionId}/resourceGroups/${resourceGroupName}`;
+  return `${baseUrl}/#@/resource${resourceId}`;
+};
 
 async function acquireTokenSilentOrPopup(account: AccountInfo, scopes: string[]): Promise<AuthenticationResult> {
   try {
@@ -55,34 +71,45 @@ export const Dashboard: React.FC = () => {
   const [items, setItems] = useState<ResourceItem[]>([]);
   
   // State for filtering
-  const [nameFilter, setNameFilter] = useState('');
-  const [typeFilter, setTypeFilter] = useState('');
-  const [resourceGroupFilter, setResourceGroupFilter] = useState('');
-  const [locationFilter, setLocationFilter] = useState('');
+  const [globalSearch, setGlobalSearch] = useState('');
   
   // State for view mode
   const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
 
   const canQuery = useMemo(() => !!selectedSubscription && !!account, [selectedSubscription, account]);
 
-  // Filter items based on current filter values
+  // Filter items based on global search
   const filteredItems = useMemo(() => {
+    if (!globalSearch.trim()) {
+      return items;
+    }
+
+    const searchTerm = globalSearch.toLowerCase();
+    
     return items.filter(item => {
-      const matchesName = !nameFilter || item.name.toLowerCase().includes(nameFilter.toLowerCase());
-      const matchesType = !typeFilter || item.type.toLowerCase().includes(typeFilter.toLowerCase());
-      const matchesResourceGroup = !resourceGroupFilter || (item.resourceGroup && item.resourceGroup.toLowerCase().includes(resourceGroupFilter.toLowerCase()));
-      const matchesLocation = !locationFilter || (item.location && item.location.toLowerCase().includes(locationFilter.toLowerCase()));
+      // Search in basic fields
+      const matchesName = item.name.toLowerCase().includes(searchTerm);
+      const matchesType = item.type.toLowerCase().includes(searchTerm);
+      const matchesResourceGroup = item.resourceGroup?.toLowerCase().includes(searchTerm) || false;
+      const matchesLocation = item.location?.toLowerCase().includes(searchTerm) || false;
       
-      return matchesName && matchesType && matchesResourceGroup && matchesLocation;
+      // Search in owners
+      const matchesOwners = item.owners?.some(owner => 
+        owner.toLowerCase().includes(searchTerm)
+      ) || false;
+      
+      // Search in tags (both keys and values)
+      const matchesTags = item.tags ? Object.entries(item.tags).some(([key, value]) => 
+        key.toLowerCase().includes(searchTerm) || value.toLowerCase().includes(searchTerm)
+      ) : false;
+      
+      return matchesName || matchesType || matchesResourceGroup || matchesLocation || matchesOwners || matchesTags;
     });
-  }, [items, nameFilter, typeFilter, resourceGroupFilter, locationFilter]);
+  }, [items, globalSearch]);
 
   // Clear filters when new data is loaded
   const clearFilters = () => {
-    setNameFilter('');
-    setTypeFilter('');
-    setResourceGroupFilter('');
-    setLocationFilter('');
+    setGlobalSearch('');
   };
 
   // Load Azure accounts and subscriptions on component mount
@@ -240,7 +267,7 @@ export const Dashboard: React.FC = () => {
   return (
     <div>
       {/* Azure Account Selection */}
-      <Card className="mb-4">
+      <Card className="mb-4 azure-account-section">
         <Card.Header>
           <h4 className="mb-0">Azure Account Selection</h4>
         </Card.Header>
@@ -354,7 +381,7 @@ export const Dashboard: React.FC = () => {
 
       {/* Resource Results */}
       {items.length > 0 && (
-        <Card>
+        <Card className="results-section">
           <Card.Header>
             <Row className="align-items-center">
               <Col>
@@ -366,93 +393,69 @@ export const Dashboard: React.FC = () => {
                 </small>
               </Col>
               <Col xs="auto">
-                <div className="d-flex gap-2">
-                  <Button 
-                    variant={viewMode === 'table' ? 'primary' : 'outline-primary'}
-                    size="sm"
-                    onClick={() => setViewMode('table')}
-                  >
-                    Table
-                  </Button>
-                  <Button 
-                    variant={viewMode === 'cards' ? 'primary' : 'outline-primary'}
-                    size="sm"
-                    onClick={() => setViewMode('cards')}
-                  >
-                    Cards
-                  </Button>
+                <div className="d-flex gap-3 align-items-center">
+                  <div className="view-toggle-group">
+                    <Button 
+                      variant={viewMode === 'table' ? 'primary' : 'outline-secondary'}
+                      size="sm"
+                      onClick={() => setViewMode('table')}
+                      className={viewMode === 'table' ? 'active' : ''}
+                    >
+                      Table
+                    </Button>
+                    <Button 
+                      variant={viewMode === 'cards' ? 'primary' : 'outline-secondary'}
+                      size="sm"
+                      onClick={() => setViewMode('cards')}
+                      className={viewMode === 'cards' ? 'active' : ''}
+                    >
+                      Cards
+                    </Button>
+                  </div>
                   <Button 
                     variant="outline-secondary" 
                     size="sm" 
                     onClick={clearFilters}
-                    disabled={!nameFilter && !typeFilter && !resourceGroupFilter && !locationFilter}
+                    disabled={!globalSearch.trim()}
                   >
-                    Clear Filters
+                    Clear Search
                   </Button>
                 </div>
               </Col>
             </Row>
           </Card.Header>
           <Card.Body>
-            {/* Filters */}
-            <div className="filter-section">
-              <Row className="g-3">
-              <Col md={3}>
-                <Form.Group>
-                  <Form.Label>Filter by Name</Form.Label>
+            {/* Global Search */}
+            <div className="search-section mb-4">
+              <div className="search-container">
+                <div className="search-input-wrapper">
                   <Form.Control
                     type="text"
-                    placeholder="Search by name..."
-                    value={nameFilter}
-                    onChange={(e) => setNameFilter(e.target.value)}
-                    size="sm"
+                    placeholder="Search resources..."
+                    value={globalSearch}
+                    onChange={(e) => setGlobalSearch(e.target.value)}
+                    className="search-input"
                   />
-                </Form.Group>
-              </Col>
-              <Col md={3}>
-                <Form.Group>
-                  <Form.Label>Filter by Type</Form.Label>
-                  <Form.Control
-                    type="text"
-                    placeholder="Search by type..."
-                    value={typeFilter}
-                    onChange={(e) => setTypeFilter(e.target.value)}
-                    size="sm"
-                  />
-                </Form.Group>
-              </Col>
-              <Col md={3}>
-                <Form.Group>
-                  <Form.Label>Filter by Resource Group</Form.Label>
-                  <Form.Control
-                    type="text"
-                    placeholder="Search by resource group..."
-                    value={resourceGroupFilter}
-                    onChange={(e) => setResourceGroupFilter(e.target.value)}
-                    size="sm"
-                  />
-                </Form.Group>
-              </Col>
-              <Col md={3}>
-                <Form.Group>
-                  <Form.Label>Filter by Location</Form.Label>
-                  <Form.Control
-                    type="text"
-                    placeholder="Search by location..."
-                    value={locationFilter}
-                    onChange={(e) => setLocationFilter(e.target.value)}
-                    size="sm"
-                  />
-                </Form.Group>
-              </Col>
-              </Row>
+                  {globalSearch && (
+                    <button 
+                      className="search-clear-btn"
+                      onClick={() => setGlobalSearch('')}
+                      title="Clear"
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
 
             {/* Results Display */}
             {viewMode === 'table' ? (
               <div className="table-responsive">
-                <Table striped hover className="mb-0 table-sm">
-                  <thead className="table-light">
+                <Table className="mb-0 table-sm">
+                  <thead>
                     <tr>
                       <th style={{ width: '20%' }}>Name</th>
                       <th style={{ width: '25%' }}>Type</th>
@@ -466,8 +469,17 @@ export const Dashboard: React.FC = () => {
                     {filteredItems.map(item => (
                       <tr key={item.id}>
                         <td>
-                          <div className="text-break" style={{ maxWidth: '200px' }}>
-                            <strong>{item.name}</strong>
+                          <div className="text-break" style={{ maxWidth: '300px' }}>
+                            <strong 
+                              style={{ cursor: 'pointer', color: '#0d6efd' }}
+                              onClick={() => {
+                                const url = generateAzurePortalUrl(item.id);
+                                window.open(url, '_blank', 'noopener,noreferrer');
+                              }}
+                              title="Click to open resource in Azure Portal"
+                            >
+                              {item.name}
+                            </strong>
                           </div>
                         </td>
                         <td>
@@ -477,7 +489,16 @@ export const Dashboard: React.FC = () => {
                         </td>
                         <td>
                           {item.resourceGroup ? (
-                            <Badge bg="info" className="text-break small" style={{ maxWidth: '150px' }}>
+                            <Badge 
+                              bg="info" 
+                              className="text-break small" 
+                              style={{ maxWidth: '150px', cursor: 'pointer' }}
+                              onClick={() => {
+                                const url = generateResourceGroupUrl(selectedSubscription?.id || '', item.resourceGroup!);
+                                window.open(url, '_blank', 'noopener,noreferrer');
+                              }}
+                              title="Click to open Resource Group in Azure Portal"
+                            >
                               {item.resourceGroup}
                             </Badge>
                           ) : (
@@ -518,15 +539,36 @@ export const Dashboard: React.FC = () => {
               <Row className="g-3">
                 {filteredItems.map(item => (
                   <Col key={item.id} md={6} lg={4}>
-                    <Card className="h-100">
+                                          <Card className="h-100">
                       <Card.Body>
-                        <Card.Title className="h6 text-break">{item.name}</Card.Title>
+                        <Card.Title 
+                          className="h6 text-break" 
+                          style={{ cursor: 'pointer', color: '#0d6efd' }}
+                          onClick={() => {
+                            const url = generateAzurePortalUrl(item.id);
+                            window.open(url, '_blank', 'noopener,noreferrer');
+                          }}
+                          title="Click to open resource in Azure Portal"
+                        >
+                          {item.name}
+                        </Card.Title>
                         <div className="mb-2">
                           <code className="text-primary small">{item.type}</code>
                         </div>
                         <div className="mb-2">
                           {item.resourceGroup && (
-                            <Badge bg="info" className="me-1">{item.resourceGroup}</Badge>
+                            <Badge 
+                              bg="info" 
+                              className="me-1" 
+                              style={{ cursor: 'pointer' }}
+                              onClick={() => {
+                                const url = generateResourceGroupUrl(selectedSubscription?.id || '', item.resourceGroup!);
+                                window.open(url, '_blank', 'noopener,noreferrer');
+                              }}
+                              title="Click to open Resource Group in Azure Portal"
+                            >
+                              {item.resourceGroup}
+                            </Badge>
                           )}
                           {item.location && (
                             <Badge bg="secondary">{item.location}</Badge>
@@ -572,16 +614,16 @@ export const Dashboard: React.FC = () => {
       )}
 
       {items.length === 0 && !loading && !error && selectedSubscription && (
-        <Card>
-          <Card.Body className="text-center text-muted">
+        <Card className="empty-state-card">
+          <Card.Body>
             <p className="mb-0">No resources found in {selectedSubscription.name}. Click "Query Resources" to get started.</p>
           </Card.Body>
         </Card>
       )}
 
       {!selectedSubscription && !loading && !error && (
-        <Card>
-          <Card.Body className="text-center text-muted">
+        <Card className="empty-state-card">
+          <Card.Body>
             <p className="mb-0">Please select a tenant and subscription to query Azure resources.</p>
           </Card.Body>
         </Card>

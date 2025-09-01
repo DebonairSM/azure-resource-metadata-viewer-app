@@ -273,7 +273,7 @@ export const Dashboard: React.FC = () => {
         </Card.Header>
         <Card.Body>
           <Row className="g-3 align-items-end">
-            <Col md={4}>
+            <Col md={3}>
               <Form.Group>
                 <Form.Label>Tenant (Company)</Form.Label>
                 <DropdownButton
@@ -305,7 +305,7 @@ export const Dashboard: React.FC = () => {
               </Form.Group>
             </Col>
             
-            <Col md={4}>
+            <Col md={3}>
               <Form.Group>
                 <Form.Label>Subscription</Form.Label>
                 <DropdownButton
@@ -352,12 +352,12 @@ export const Dashboard: React.FC = () => {
               </Button>
             </Col>
             
-            <Col md={2}>
+            <Col md={4}>
               <Button 
                 variant="primary" 
                 onClick={onQuery} 
                 disabled={!canQuery || loading}
-                className="w-100"
+                className="w-100 query-resources-btn"
               >
                 {loading ? (
                   <>

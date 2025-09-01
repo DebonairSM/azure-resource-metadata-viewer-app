@@ -457,12 +457,12 @@ export const Dashboard: React.FC = () => {
                 <Table className="mb-0 table-sm">
                   <thead>
                     <tr>
-                      <th style={{ width: '20%' }}>Name</th>
-                      <th style={{ width: '25%' }}>Type</th>
-                      <th style={{ width: '15%' }}>Resource Group</th>
-                      <th style={{ width: '10%' }}>Location</th>
-                      <th style={{ width: '15%' }}>Owners</th>
-                      <th style={{ width: '15%' }}>Tags</th>
+                      <th style={{ width: '16.5%' }}>Name</th>
+                      <th style={{ width: '16.5%' }}>Type</th>
+                      <th style={{ width: '16.5%' }}>Resource Group</th>
+                      <th style={{ width: '16.5%' }}>Location</th>
+                      <th style={{ width: '16.5%' }}>Owners</th>
+                      <th style={{ width: '17.5%' }}>Tags</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -484,7 +484,9 @@ export const Dashboard: React.FC = () => {
                         </td>
                         <td>
                           <div className="text-break" style={{ maxWidth: '250px' }}>
-                            <code className="text-primary small">{item.type}</code>
+                            <Badge bg="secondary" className="border border-secondary text-secondary bg-transparent small">
+                              {item.type}
+                            </Badge>
                           </div>
                         </td>
                         <td>
@@ -492,7 +494,7 @@ export const Dashboard: React.FC = () => {
                             <Badge 
                               bg="info" 
                               className="text-break small" 
-                              style={{ maxWidth: '150px', cursor: 'pointer' }}
+                              style={{ cursor: 'pointer', whiteSpace: 'normal', border: '2px solid #1e40af' }}
                               onClick={() => {
                                 const url = generateResourceGroupUrl(selectedSubscription?.id || '', item.resourceGroup!);
                                 window.open(url, '_blank', 'noopener,noreferrer');
@@ -507,7 +509,7 @@ export const Dashboard: React.FC = () => {
                         </td>
                         <td>
                           {item.location ? (
-                            <Badge bg="secondary small">{item.location}</Badge>
+                            <Badge bg="secondary" className="border border-secondary text-secondary bg-transparent small">{item.location}</Badge>
                           ) : (
                             <span className="text-muted">—</span>
                           )}
@@ -516,7 +518,7 @@ export const Dashboard: React.FC = () => {
                           {item.owners && item.owners.length > 0 ? (
                             <div className="d-flex flex-wrap gap-1">
                               {item.owners.map((owner, index) => (
-                                <Badge key={index} bg="success" className="border border-success text-success bg-transparent text-break small" style={{ maxWidth: '120px' }}>
+                                <Badge key={index} bg="success" className="border border-success text-success bg-transparent text-break small">
                                   {owner}
                                 </Badge>
                               ))}

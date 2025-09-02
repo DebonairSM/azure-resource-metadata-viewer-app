@@ -264,6 +264,22 @@ export const Dashboard: React.FC = () => {
     );
   };
 
+  const renderTagsForCards = (tags?: Record<string, string>) => {
+    if (!tags || Object.keys(tags).length === 0) {
+      return <span className="text-muted">—</span>;
+    }
+
+    return (
+      <div className="d-flex flex-wrap gap-1">
+        {Object.entries(tags).map(([k, v]) => (
+          <Badge key={k} bg="secondary" className="card-tag-badge">
+            <strong>{k}:</strong> {v}
+          </Badge>
+        ))}
+      </div>
+    );
+  };
+
   return (
     <div>
       {/* Azure Account Selection */}
@@ -457,12 +473,12 @@ export const Dashboard: React.FC = () => {
                 <Table className="mb-0 table-sm">
                   <thead>
                     <tr>
-                      <th style={{ width: '16.5%' }}>Name</th>
-                      <th style={{ width: '16.5%' }}>Type</th>
-                      <th style={{ width: '16.5%' }}>Resource Group</th>
-                      <th style={{ width: '16.5%' }}>Location</th>
-                      <th style={{ width: '16.5%' }}>Owners</th>
-                      <th style={{ width: '17.5%' }}>Tags</th>
+                      <th style={{ width: '18%', minWidth: '140px' }}>Name</th>
+                      <th style={{ width: '22%', minWidth: '220px' }}>Type</th>
+                      <th style={{ width: '15%', minWidth: '130px' }}>Resource Group</th>
+                      <th style={{ width: '12%', minWidth: '100px' }}>Location</th>
+                      <th style={{ width: '15%', minWidth: '120px' }}>Owners</th>
+                      <th style={{ width: '18%', minWidth: '180px' }}>Tags</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -561,7 +577,7 @@ export const Dashboard: React.FC = () => {
                           {item.resourceGroup && (
                             <Badge 
                               bg="info" 
-                              className="me-1" 
+                              className="me-1 card-resource-group-badge" 
                               style={{ cursor: 'pointer' }}
                               onClick={() => {
                                 const url = generateResourceGroupUrl(selectedSubscription?.id || '', item.resourceGroup!);
@@ -592,7 +608,7 @@ export const Dashboard: React.FC = () => {
                           <div>
                             <small className="text-muted">Tags:</small>
                             <div className="mt-1">
-                              {renderTags(item.tags)}
+                              {renderTagsForCards(item.tags)}
                             </div>
                           </div>
                         )}

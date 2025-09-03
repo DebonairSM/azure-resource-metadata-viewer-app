@@ -7,9 +7,10 @@ import { UserProfile } from './UserProfile';
 
 interface PageLayoutProps {
   children: React.ReactNode;
+  tenantName?: string;
 }
 
-export const PageLayout: React.FC<PageLayoutProps> = ({ children }) => {
+export const PageLayout: React.FC<PageLayoutProps> = ({ children, tenantName }) => {
   const isAuthenticated = useIsAuthenticated();
 
   return (
@@ -18,7 +19,14 @@ export const PageLayout: React.FC<PageLayoutProps> = ({ children }) => {
         <Container>
           <div className="header-content">
             <div className="header-brand">
-              <h1 className="header-title">Azure Resource Metadata Viewer</h1>
+              <h1 className="header-title">
+                Azure Resource Manager
+                {tenantName && (
+                  <span className="ms-3 text-muted" style={{ fontSize: '0.7em', fontWeight: 'normal' }}>
+                    {tenantName}
+                  </span>
+                )}
+              </h1>
             </div>
             <div className="header-actions">
               {isAuthenticated ? (

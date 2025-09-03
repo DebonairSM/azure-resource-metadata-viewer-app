@@ -9,8 +9,6 @@ import {
   Card,
   Row,
   Col,
-  Dropdown,
-  DropdownButton,
   Modal
 } from 'react-bootstrap';
 import * as XLSX from 'xlsx';
@@ -20,6 +18,7 @@ import { msalInstance, ARM_SCOPE, GRAPH_SCOPES } from '../auth/msalConfig';
 import { fetchAllOwnerRoleAssignments, fetchAllResources, parseResourceGroupFromId, deleteResource } from '../api/arm';
 import { getPrincipalsByIds } from '../api/graph';
 import { azureAccountManager, type AzureSubscription, type AzureTenant } from '../api/azureAccounts';
+import { PageLayout } from './PageLayout';
 // import { MultiAccountSelector } from './MultiAccountSelector';
 // import { multiAccountManager, type TenantAccount } from '../auth/multiAccountManager';
 
@@ -504,116 +503,99 @@ export const Dashboard: React.FC = () => {
   };
 
   return (
-    <div>
-      {/* Azure Account Selection */}
-      <Card className="mb-4 azure-account-section">
-        <Card.Header>
-          <h4 className="mb-0">Azure Account Selection</h4>
-        </Card.Header>
-        <Card.Body>
-          <Row className="g-3">
-            <Col md={3}>
-              <Form.Group>
-                <Form.Label>Tenant</Form.Label>
-                <DropdownButton
-                  variant="outline-secondary"
-                  title={
-                    loadingAccounts ? (
-                      <span>
-                        <Spinner as="span" animation="border" size="sm" className="me-2" />
-                        Loading...
-                      </span>
-                    ) : selectedTenant ? (
-                      <div className="text-start">
-                        <div className="fw-bold">{selectedTenant.displayName}</div>
-                        <small className="text-muted">{selectedTenant.defaultDomain}</small>
-                      </div>
-                    ) : (
-                      'Select Tenant'
-                    )
-                  }
-                  disabled={loadingAccounts || tenants.length === 0}
-                  className="w-100"
-                >
-                  {tenants.length === 0 ? (
-                    <Dropdown.Item disabled>
-                      <em>No tenants available. Click "Refresh" to load.</em>
-                    </Dropdown.Item>
-                  ) : (
-                    tenants.map((tenant) => (
-                      <Dropdown.Item 
-                        key={tenant.id} 
-                        onClick={() => handleTenantChange(tenant)}
-                        active={selectedTenant?.id === tenant.id}
-                        disabled={loadingAccounts}
+    <PageLayout tenantName={selectedTenant?.displayName}>
+      <div>
+        {/* Azure Account Selection */}
+        <div className="subscription-selector">
+          {getSubscriptionsForSelectedTenant.length === 0 ? (
+            <div className="text-muted text-center py-3">
+              <em>No subscriptions available. Select a tenant first.</em>
+            </div>
+          ) : (
+            <>
+              {/* Search and Controls Bar */}
+              <div className="d-flex justify-content-between align-items-center mb-3 p-2 bg-light rounded gap-3">
+                  <div className="d-flex align-items-center gap-3 flex-grow-1">
+                    <div className="search-input-wrapper" style={{ width: '250px', position: 'relative' }}>
+                      <Form.Control
+                        type="text"
+                        placeholder="Search subscriptions..."
+                        value={subscriptionSearchTerm}
+                        onChange={(e) => setSubscriptionSearchTerm(e.target.value)}
+                        className="search-input"
+                        style={{ paddingRight: '35px' }}
+                      />
+                      <button 
+                        className="search-clear-btn"
+                        onClick={() => setSubscriptionSearchTerm('')}
+                        title="Clear"
+                        style={{ 
+                          position: 'absolute', 
+                          right: '8px', 
+                          top: '50%', 
+                          transform: 'translateY(-50%)',
+                          opacity: subscriptionSearchTerm ? 1 : 0,
+                          visibility: subscriptionSearchTerm ? 'visible' : 'hidden',
+                          transition: 'opacity 0.2s ease, visibility 0.2s ease'
+                        }}
                       >
-                        <div>
-                          <div className="d-flex align-items-center">
-                            <strong>{tenant.displayName}</strong>
-                            {selectedTenant?.id === tenant.id && (
-                              <Badge bg="success" className="ms-2">Current</Badge>
-                            )}
-                          </div>
-                          <small className="text-muted">{tenant.defaultDomain}</small>
-                        </div>
-                      </Dropdown.Item>
-                    ))
-                  )}
-                </DropdownButton>
-                {selectedTenant && (
-                  <small className="text-muted">
-                    Currently viewing: <strong>{selectedTenant.displayName}</strong>
-                  </small>
-                )}
-              </Form.Group>
-            </Col>
-            
-            <Col md={5}>
-              <Form.Group>
-                <Form.Label>
-                  Subscriptions ({selectedSubscriptions.length} selected)
-                </Form.Label>
-                <div className="subscription-selector">
-                  {getSubscriptionsForSelectedTenant.length === 0 ? (
-                    <div className="text-muted text-center py-3">
-                      <em>No subscriptions available. Select a tenant first.</em>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                      </button>
                     </div>
-                  ) : (
-                    <>
-                      {/* Search Box */}
-                      <div className="mb-3">
-                        <Form.Control
-                          type="text"
-                          placeholder="Search subscriptions..."
-                          value={subscriptionSearchTerm}
-                          onChange={(e) => setSubscriptionSearchTerm(e.target.value)}
-                          className="subscription-search-input"
-                        />
-                      </div>
-
-                      {/* Quick Actions Bar */}
-                      <div className="d-flex justify-content-between align-items-center mb-3 p-2 bg-light rounded">
-                        <div className="d-flex align-items-center gap-2">
-                          <Form.Check
-                            type="checkbox"
-                            id="select-all-subscriptions"
-                            label={<strong>Select All</strong>}
-                            checked={filteredSubscriptions.every(sub => 
-                              selectedSubscriptions.some(selected => selected.id === sub.id)
-                            )}
-                            onChange={handleSelectAllSubscriptions}
-                            className="mb-0"
-                          />
-                          <Badge bg="secondary">
-                            {filteredSubscriptions.length} {subscriptionSearchTerm ? 'filtered' : 'total'}
-                          </Badge>
-                        </div>
-                        <div className="d-flex align-items-center gap-2">
-                          <Badge bg="success">
-                            {selectedSubscriptions.length} selected
-                          </Badge>
-                        </div>
-                      </div>
+                    <Form.Check
+                      type="checkbox"
+                      id="select-all-subscriptions"
+                      label={<strong>Select All</strong>}
+                      checked={filteredSubscriptions.every(sub => 
+                        selectedSubscriptions.some(selected => selected.id === sub.id)
+                      )}
+                      onChange={handleSelectAllSubscriptions}
+                      className="mb-0"
+                    />
+                    <Badge bg="success">
+                      {selectedSubscriptions.length} selected
+                    </Badge>
+                    {subscriptionSearchTerm && (
+                      <Badge bg="secondary">
+                        {filteredSubscriptions.length} filtered
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="d-flex align-items-center gap-2">
+                    <Button 
+                      variant="outline-primary" 
+                      size="sm"
+                      onClick={loadAzureAccounts}
+                      disabled={loadingAccounts}
+                      style={{ minWidth: '140px' }}
+                    >
+                      {loadingAccounts ? (
+                        <Spinner as="span" animation="border" size="sm" />
+                      ) : (
+                        'Refresh Subscriptions'
+                      )}
+                    </Button>
+                    <Button 
+                      variant="primary" 
+                      size="sm"
+                      onClick={onQuery} 
+                      disabled={!canQuery || loading}
+                      className="query-resources-btn"
+                      style={{ minWidth: '120px' }}
+                    >
+                      {loading ? (
+                        <>
+                          <Spinner as="span" animation="border" size="sm" className="me-2" />
+                          Loading...
+                        </>
+                      ) : (
+                        'Query Resources'
+                      )}
+                    </Button>
+                  </div>
+                </div>
 
                       {/* Compact Subscription Grid */}
                       <div className="subscription-grid">
@@ -649,12 +631,6 @@ export const Dashboard: React.FC = () => {
                                     >
                                       <strong>ID:</strong> {subscription.id}
                                     </small>
-                                    <Badge 
-                                      bg={subscription.state === 'Enabled' ? 'success' : 'warning'} 
-                                      className="small"
-                                    >
-                                      {subscription.state}
-                                    </Badge>
                                   </div>
                                 </div>
                               </div>
@@ -665,154 +641,105 @@ export const Dashboard: React.FC = () => {
                     </>
                   )}
                 </div>
-              </Form.Group>
-            </Col>
-            
-            <Col md={4}>
-              <div className="d-flex flex-column gap-2 h-100">
-                <Button 
-                  variant="outline-primary" 
-                  onClick={loadAzureAccounts}
-                  disabled={loadingAccounts}
-                  className="w-100"
-                >
-                  {loadingAccounts ? (
-                    <>
-                      <Spinner as="span" animation="border" size="sm" className="me-2" />
-                      Loading...
-                    </>
-                  ) : (
-                    'Refresh'
-                  )}
-                </Button>
-                
-                <Button 
-                  variant="primary" 
-                  onClick={onQuery} 
-                  disabled={!canQuery || loading}
-                  className="w-100 query-resources-btn"
-                >
-                  {loading ? (
-                    <>
-                      <Spinner as="span" animation="border" size="sm" className="me-2" />
-                      Loading...
-                    </>
-                  ) : (
-                    'Query Resources'
-                  )}
-                </Button>
-              </div>
-            </Col>
-          </Row>
           
           {error && (
             <Alert variant="danger" className="mt-3">
               <strong>Error:</strong> {error}
             </Alert>
           )}
-        </Card.Body>
-      </Card>
+        </div>
 
       {/* Resource Results - Always render to prevent layout shift */}
       <Card className="results-section">
         <Card.Header>
           <Row className="align-items-center">
             <Col>
-              <h5 className="mb-0">
-                {items.length > 0 ? (
-                  <>Resources from {selectedSubscriptions.length} subscription{selectedSubscriptions.length !== 1 ? 's' : ''} ({filteredAndSortedItems.length} of {items.length})</>
-                ) : (
-                  <>Resource Results</>
-                )}
-              </h5>
-              {items.length > 0 && selectedTenant && (
-                <div className="d-flex align-items-center gap-2">
-                  <Badge bg="primary" className="d-flex align-items-center">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" className="me-1">
-                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-                    </svg>
-                    {selectedTenant.displayName}
-                  </Badge>
-                  <small className="text-muted">
-                    Subscriptions: {selectedSubscriptions.map(sub => sub.name).join(', ')}
-                  </small>
-                </div>
-              )}
-            </Col>
-            {items.length > 0 && (
-              <Col xs="auto">
-                <div className="d-flex gap-3 align-items-center">
-                  <Button
-                    variant="success"
-                    size="sm"
-                    onClick={exportToExcel}
-                    className="d-flex align-items-center"
-                  >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" className="me-1">
-                      <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
-                    </svg>
-                    Export to Excel
-                  </Button>
-                  <div className="view-toggle-group">
-                    <Button 
-                      variant={viewMode === 'table' ? 'primary' : 'outline-secondary'}
-                      size="sm"
-                      onClick={() => setViewMode('table')}
-                      className={viewMode === 'table' ? 'active' : ''}
-                    >
-                      Table
-                    </Button>
-                    <Button 
-                      variant={viewMode === 'cards' ? 'primary' : 'outline-secondary'}
-                      size="sm"
-                      onClick={() => setViewMode('cards')}
-                      className={viewMode === 'cards' ? 'active' : ''}
-                    >
-                      Cards
-                    </Button>
-                  </div>
-                  <Button 
-                    variant="outline-secondary" 
-                    size="sm" 
-                    onClick={clearFilters}
-                    disabled={!globalSearch.trim()}
-                  >
-                    Clear Search
-                  </Button>
-                </div>
-              </Col>
-            )}
-          </Row>
-        </Card.Header>
-        <Card.Body>
-          {items.length > 0 ? (
-            <>
-              {/* Global Search */}
-              <div className="search-section mb-4">
-                <div className="search-container">
-                  <div className="search-input-wrapper">
+              <div className="d-flex gap-3 align-items-center">
+                {items.length > 0 && (
+                  <div className="search-input-wrapper" style={{ width: '250px', position: 'relative' }}>
                     <Form.Control
                       type="text"
                       placeholder="Search resources..."
                       value={globalSearch}
                       onChange={(e) => setGlobalSearch(e.target.value)}
                       className="search-input"
+                      style={{ paddingRight: '35px' }}
                     />
-                    {globalSearch && (
-                      <button 
-                        className="search-clear-btn"
-                        onClick={() => setGlobalSearch('')}
-                        title="Clear"
-                      >
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                          <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                        </svg>
-                      </button>
-                    )}
+                    <button 
+                      className="search-clear-btn"
+                      onClick={() => setGlobalSearch('')}
+                      title="Clear"
+                      style={{ 
+                        position: 'absolute', 
+                        right: '8px', 
+                        top: '50%', 
+                        transform: 'translateY(-50%)',
+                        opacity: globalSearch ? 1 : 0,
+                        visibility: globalSearch ? 'visible' : 'hidden',
+                        transition: 'opacity 0.2s ease, visibility 0.2s ease'
+                      }}
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    </button>
                   </div>
-                </div>
+                )}
+                <h5 className="mb-0" style={{ fontSize: '1.1rem', fontWeight: '500' }}>
+                  {items.length > 0 ? (
+                    <>Showing {filteredAndSortedItems.length} of {items.length} resources from {selectedSubscriptions.length} subscription{selectedSubscriptions.length !== 1 ? 's' : ''}</>
+                  ) : (
+                    <>Resource Results</>
+                  )}
+                </h5>
+                {items.length > 0 && (
+                  <div className="ms-auto d-flex gap-3 align-items-center">
+                    <Button
+                      variant="success"
+                      size="sm"
+                      onClick={exportToExcel}
+                      className="d-flex align-items-center"
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" className="me-1">
+                        <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
+                      </svg>
+                      Export to Excel
+                    </Button>
+                    <div className="view-toggle-group">
+                      <Button 
+                        variant={viewMode === 'table' ? 'primary' : 'outline-secondary'}
+                        size="sm"
+                        onClick={() => setViewMode('table')}
+                        className={viewMode === 'table' ? 'active' : ''}
+                      >
+                        Table
+                      </Button>
+                      <Button 
+                        variant={viewMode === 'cards' ? 'primary' : 'outline-secondary'}
+                        size="sm"
+                        onClick={() => setViewMode('cards')}
+                        className={viewMode === 'cards' ? 'active' : ''}
+                      >
+                        Cards
+                      </Button>
+                    </div>
+                    <Button 
+                      variant="outline-secondary" 
+                      size="sm" 
+                      onClick={clearFilters}
+                      disabled={!globalSearch.trim()}
+                    >
+                      Clear Search
+                    </Button>
+                  </div>
+                )}
               </div>
-
+            </Col>
+          </Row>
+        </Card.Header>
+        <Card.Body>
+          {items.length > 0 ? (
+            <>
               {/* Results Display */}
               {viewMode === 'table' ? (
                 <div className="table-responsive table-container">
@@ -1197,6 +1124,6 @@ export const Dashboard: React.FC = () => {
           </Button>
         </Modal.Footer>
       </Modal>
-    </div>
+    </PageLayout>
   );
 };

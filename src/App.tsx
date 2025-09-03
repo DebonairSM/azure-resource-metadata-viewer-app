@@ -65,11 +65,11 @@ function AppRoot() {
 
   return (
     <MsalProvider instance={currentMsalInstance}>
-      <PageLayout>
-        <AuthenticatedTemplate>
-          <Dashboard />
-        </AuthenticatedTemplate>
-        <UnauthenticatedTemplate>
+      <AuthenticatedTemplate>
+        <Dashboard />
+      </AuthenticatedTemplate>
+      <UnauthenticatedTemplate>
+        <PageLayout>
           <div className="hero-section">
             <div className="hero-content">
               <h1 className="hero-title">Welcome to Azure Resource Metadata Viewer</h1>
@@ -78,8 +78,8 @@ function AppRoot() {
               </p>
             </div>
           </div>
-        </UnauthenticatedTemplate>
-      </PageLayout>
+        </PageLayout>
+      </UnauthenticatedTemplate>
     </MsalProvider>
   );
 }

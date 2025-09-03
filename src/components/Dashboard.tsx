@@ -78,6 +78,7 @@ export const Dashboard: React.FC = () => {
   const [loadingAccounts, setLoadingAccounts] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [items, setItems] = useState<ResourceItem[]>([]);
+  const [hasSearched, setHasSearched] = useState(false);
   
   // State for filtering
   const [globalSearch, setGlobalSearch] = useState('');
@@ -258,6 +259,7 @@ export const Dashboard: React.FC = () => {
       }
     });
     setItems([]); // Clear previous results
+    setHasSearched(false); // Reset search state
   };
 
   // Handle select all subscriptions
@@ -275,6 +277,7 @@ export const Dashboard: React.FC = () => {
       setSelectedSubscriptions([...allSubscriptions]);
     }
     setItems([]); // Clear previous results
+    setHasSearched(false); // Reset search state
   };
 
   // Get subscriptions for selected tenant
@@ -299,6 +302,7 @@ export const Dashboard: React.FC = () => {
     
     setLoading(true);
     setError(null);
+    setHasSearched(true);
     
     try {
       const armToken = await acquireTokenSilentOrPopup(account, [ARM_SCOPE]);
@@ -996,10 +1000,17 @@ export const Dashboard: React.FC = () => {
                   <small>Please try again or check your permissions.</small>
                 </div>
               ) : selectedSubscriptions.length > 0 ? (
-                <div>
-                  <p className="mb-0">No resources found in {selectedSubscriptions.length} selected subscription{selectedSubscriptions.length !== 1 ? 's' : ''}.</p>
-                  <small>Click "Query Resources" to get started.</small>
-                </div>
+                hasSearched ? (
+                  <div>
+                    <p className="mb-0">No resources found in {selectedSubscriptions.length} selected subscription{selectedSubscriptions.length !== 1 ? 's' : ''}.</p>
+                    <small>Try adjusting your search criteria or check different subscriptions.</small>
+                  </div>
+                ) : (
+                  <div>
+                    <p className="mb-0">Ready to query {selectedSubscriptions.length} selected subscription{selectedSubscriptions.length !== 1 ? 's' : ''}.</p>
+                    <small>Click "Query Resources" to get started.</small>
+                  </div>
+                )
               ) : (
                 <div>
                   <p className="mb-0">Please select a tenant and subscription to query Azure resources.</p>

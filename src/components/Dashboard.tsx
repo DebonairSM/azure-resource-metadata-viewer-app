@@ -815,7 +815,7 @@ export const Dashboard: React.FC = () => {
 
               {/* Results Display */}
               {viewMode === 'table' ? (
-                <div className="table-responsive">
+                <div className="table-responsive table-container">
                   <Table className="mb-0 table-sm">
                     <thead>
                       <tr>
@@ -884,12 +884,17 @@ export const Dashboard: React.FC = () => {
                             </div>
                           </div>
                         </th>
-                        <th style={{ width: '10%', minWidth: '80px', verticalAlign: 'top', paddingTop: '12px', paddingBottom: '0' }}>Actions</th>
+                        <th style={{ width: '10%', minWidth: '80px', verticalAlign: 'top', paddingTop: '12px', paddingBottom: '0', textAlign: 'center' }}>Actions</th>
                       </tr>
                     </thead>
                     <tbody>
                       {filteredAndSortedItems.map(item => (
-                        <tr key={item.id}>
+                        <tr 
+                          key={item.id}
+                          style={{ 
+                            transition: 'opacity 0.2s ease-in-out, transform 0.2s ease-in-out'
+                          }}
+                        >
                           <td>
                             <div className="text-break" style={{ maxWidth: '300px' }}>
                               <strong 
@@ -955,8 +960,8 @@ export const Dashboard: React.FC = () => {
                               {renderTags(item.tags)}
                             </div>
                           </td>
-                          <td>
-                            <div className="d-flex gap-1">
+                          <td style={{ textAlign: 'center' }}>
+                            <div className="d-flex gap-1 justify-content-center">
                               <Button
                                 variant="outline-danger"
                                 size="sm"

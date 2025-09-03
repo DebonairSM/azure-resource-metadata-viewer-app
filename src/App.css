@@ -871,6 +871,26 @@
   margin-bottom: 2rem;
 }
 
+/* Table transitions to prevent jumping */
+.table-responsive {
+  transition: height 0.3s ease-in-out;
+}
+
+.table tbody tr {
+  transition: opacity 0.2s ease-in-out, transform 0.2s ease-in-out;
+}
+
+/* Stable table container */
+.table-container {
+  min-height: 200px;
+  transition: min-height 0.3s ease-in-out;
+}
+
+/* Smooth table content transitions */
+.table tbody {
+  transition: all 0.2s ease-in-out;
+}
+
 .search-container {
   background: #ffffff;
   border: 1px solid #e2e8f0;

@@ -13,6 +13,7 @@ import {
   DropdownButton,
   Modal
 } from 'react-bootstrap';
+import * as XLSX from 'xlsx';
 import { useMsal } from '@azure/msal-react';
 import type { AccountInfo, AuthenticationResult } from '@azure/msal-browser';
 import { msalInstance, ARM_SCOPE, GRAPH_SCOPES } from '../auth/msalConfig';
@@ -165,6 +166,51 @@ export const Dashboard: React.FC = () => {
 
     return filtered;
   }, [items, globalSearch, showOnlyEmptyTags, sortColumn, sortDirection]);
+
+  // Export to Excel function
+  const exportToExcel = useCallback(() => {
+    if (filteredAndSortedItems.length === 0) {
+      alert('No data to export');
+      return;
+    }
+
+    // Prepare data for Excel export
+    const excelData = filteredAndSortedItems.map(item => ({
+      'Resource Name': item.name,
+      'Type': item.type,
+      'Resource Group': item.resourceGroup || '',
+      'Location': item.location || '',
+      'Owners': item.owners?.join(', ') || '',
+      'Tags': item.tags ? Object.entries(item.tags).map(([key, value]) => `${key}: ${value}`).join('; ') : '',
+      'Resource ID': item.id
+    }));
+
+    // Create workbook and worksheet
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(excelData);
+
+    // Set column widths
+    const colWidths = [
+      { wch: 30 }, // Resource Name
+      { wch: 25 }, // Type
+      { wch: 20 }, // Resource Group
+      { wch: 15 }, // Location
+      { wch: 25 }, // Owners
+      { wch: 30 }, // Tags
+      { wch: 50 }  // Resource ID
+    ];
+    ws['!cols'] = colWidths;
+
+    // Add worksheet to workbook
+    XLSX.utils.book_append_sheet(wb, ws, 'Azure Resources');
+
+    // Generate filename with timestamp
+    const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+    const filename = `azure-resources-${timestamp}.xlsx`;
+
+    // Save file
+    XLSX.writeFile(wb, filename);
+  }, [filteredAndSortedItems]);
 
   // Clear filters when new data is loaded
   const clearFilters = () => {
@@ -696,6 +742,17 @@ export const Dashboard: React.FC = () => {
             {items.length > 0 && (
               <Col xs="auto">
                 <div className="d-flex gap-3 align-items-center">
+                  <Button
+                    variant="success"
+                    size="sm"
+                    onClick={exportToExcel}
+                    className="d-flex align-items-center"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" className="me-1">
+                      <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
+                    </svg>
+                    Export to Excel
+                  </Button>
                   <div className="view-toggle-group">
                     <Button 
                       variant={viewMode === 'table' ? 'primary' : 'outline-secondary'}

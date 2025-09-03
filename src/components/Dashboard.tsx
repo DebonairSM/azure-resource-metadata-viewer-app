@@ -395,19 +395,25 @@ export const Dashboard: React.FC = () => {
         </Card.Body>
       </Card>
 
-      {/* Resource Results */}
-      {items.length > 0 && (
-        <Card className="results-section">
-          <Card.Header>
-            <Row className="align-items-center">
-              <Col>
-                <h5 className="mb-0">
-                  Resources in {selectedSubscription?.name} ({filteredItems.length} of {items.length})
-                </h5>
+      {/* Resource Results - Always render to prevent layout shift */}
+      <Card className="results-section">
+        <Card.Header>
+          <Row className="align-items-center">
+            <Col>
+              <h5 className="mb-0">
+                {items.length > 0 ? (
+                  <>Resources in {selectedSubscription?.name} ({filteredItems.length} of {items.length})</>
+                ) : (
+                  <>Resource Results</>
+                )}
+              </h5>
+              {items.length > 0 && (
                 <small className="text-muted">
                   Tenant: {selectedTenant?.displayName} • Subscription ID: {selectedSubscription?.id}
                 </small>
-              </Col>
+              )}
+            </Col>
+            {items.length > 0 && (
               <Col xs="auto">
                 <div className="d-flex gap-3 align-items-center">
                   <div className="view-toggle-group">
@@ -438,214 +444,226 @@ export const Dashboard: React.FC = () => {
                   </Button>
                 </div>
               </Col>
-            </Row>
-          </Card.Header>
-          <Card.Body>
-            {/* Global Search */}
-            <div className="search-section mb-4">
-              <div className="search-container">
-                <div className="search-input-wrapper">
-                  <Form.Control
-                    type="text"
-                    placeholder="Search resources..."
-                    value={globalSearch}
-                    onChange={(e) => setGlobalSearch(e.target.value)}
-                    className="search-input"
-                  />
-                  {globalSearch && (
-                    <button 
-                      className="search-clear-btn"
-                      onClick={() => setGlobalSearch('')}
-                      title="Clear"
-                    >
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                      </svg>
-                    </button>
-                  )}
+            )}
+          </Row>
+        </Card.Header>
+        <Card.Body>
+          {items.length > 0 ? (
+            <>
+              {/* Global Search */}
+              <div className="search-section mb-4">
+                <div className="search-container">
+                  <div className="search-input-wrapper">
+                    <Form.Control
+                      type="text"
+                      placeholder="Search resources..."
+                      value={globalSearch}
+                      onChange={(e) => setGlobalSearch(e.target.value)}
+                      className="search-input"
+                    />
+                    {globalSearch && (
+                      <button 
+                        className="search-clear-btn"
+                        onClick={() => setGlobalSearch('')}
+                        title="Clear"
+                      >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* Results Display */}
-            {viewMode === 'table' ? (
-              <div className="table-responsive">
-                <Table className="mb-0 table-sm">
-                  <thead>
-                    <tr>
-                      <th style={{ width: '18%', minWidth: '140px' }}>Name</th>
-                      <th style={{ width: '22%', minWidth: '220px' }}>Type</th>
-                      <th style={{ width: '15%', minWidth: '130px' }}>Resource Group</th>
-                      <th style={{ width: '12%', minWidth: '100px' }}>Location</th>
-                      <th style={{ width: '15%', minWidth: '120px' }}>Owners</th>
-                      <th style={{ width: '18%', minWidth: '180px' }}>Tags</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredItems.map(item => (
-                      <tr key={item.id}>
-                        <td>
-                          <div className="text-break" style={{ maxWidth: '300px' }}>
-                            <strong 
-                              style={{ cursor: 'pointer', color: '#0d6efd' }}
-                              onClick={() => {
-                                const url = generateAzurePortalUrl(item.id);
-                                window.open(url, '_blank', 'noopener,noreferrer');
-                              }}
-                              title="Click to open resource in Azure Portal"
-                            >
-                              {item.name}
-                            </strong>
-                          </div>
-                        </td>
-                        <td>
-                          <div className="text-break" style={{ maxWidth: '250px' }}>
-                            <Badge bg="secondary" className="border border-secondary text-secondary bg-transparent small">
-                              {item.type}
-                            </Badge>
-                          </div>
-                        </td>
-                        <td>
-                          {item.resourceGroup ? (
-                            <Badge 
-                              bg="info" 
-                              className="text-break small" 
-                              style={{ cursor: 'pointer', whiteSpace: 'normal', border: '1px solid #1e40af' }}
-                              onClick={() => {
-                                const url = generateResourceGroupUrl(selectedSubscription?.id || '', item.resourceGroup!);
-                                window.open(url, '_blank', 'noopener,noreferrer');
-                              }}
-                              title="Click to open Resource Group in Azure Portal"
-                            >
-                              {item.resourceGroup}
-                            </Badge>
-                          ) : (
-                            <span className="text-muted">—</span>
-                          )}
-                        </td>
-                        <td>
-                          {item.location ? (
-                            <Badge bg="secondary" className="border border-secondary text-secondary bg-transparent small">{item.location}</Badge>
-                          ) : (
-                            <span className="text-muted">—</span>
-                          )}
-                        </td>
-                        <td>
-                          {item.owners && item.owners.length > 0 ? (
-                            <div className="d-flex flex-wrap gap-1">
-                              {item.owners.map((owner, index) => (
-                                <Badge key={index} bg="success" className="border border-success text-success bg-transparent text-break small">
-                                  {owner}
-                                </Badge>
-                              ))}
-                            </div>
-                          ) : (
-                            <span className="text-muted">—</span>
-                          )}
-                        </td>
-                        <td>
-                          <div style={{ maxWidth: '200px' }}>
-                            {renderTags(item.tags)}
-                          </div>
-                        </td>
+              {/* Results Display */}
+              {viewMode === 'table' ? (
+                <div className="table-responsive">
+                  <Table className="mb-0 table-sm">
+                    <thead>
+                      <tr>
+                        <th style={{ width: '18%', minWidth: '140px' }}>Name</th>
+                        <th style={{ width: '22%', minWidth: '220px' }}>Type</th>
+                        <th style={{ width: '15%', minWidth: '130px' }}>Resource Group</th>
+                        <th style={{ width: '12%', minWidth: '100px' }}>Location</th>
+                        <th style={{ width: '15%', minWidth: '120px' }}>Owners</th>
+                        <th style={{ width: '18%', minWidth: '180px' }}>Tags</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </Table>
-              </div>
-            ) : (
-              <Row className="g-3">
-                {filteredItems.map(item => (
-                  <Col key={item.id} md={6} lg={4}>
-                                          <Card className="h-100">
-                      <Card.Body>
-                        <Card.Title 
-                          className="h6 text-break" 
-                          style={{ cursor: 'pointer', color: '#0d6efd' }}
-                          onClick={() => {
-                            const url = generateAzurePortalUrl(item.id);
-                            window.open(url, '_blank', 'noopener,noreferrer');
-                          }}
-                          title="Click to open resource in Azure Portal"
-                        >
-                          {item.name}
-                        </Card.Title>
-                        <div className="mb-2">
-                          <code className="text-primary small">{item.type}</code>
-                        </div>
-                        <div className="mb-2">
-                          {item.resourceGroup && (
-                            <Badge 
-                              bg="info" 
-                              className="me-1 card-resource-group-badge" 
-                              style={{ cursor: 'pointer' }}
-                              onClick={() => {
-                                const url = generateResourceGroupUrl(selectedSubscription?.id || '', item.resourceGroup!);
-                                window.open(url, '_blank', 'noopener,noreferrer');
-                              }}
-                              title="Click to open Resource Group in Azure Portal"
-                            >
-                              {item.resourceGroup}
-                            </Badge>
-                          )}
-                          {item.location && (
-                            <Badge bg="secondary">{item.location}</Badge>
-                          )}
-                        </div>
-                        {item.owners && item.owners.length > 0 && (
+                    </thead>
+                    <tbody>
+                      {filteredItems.map(item => (
+                        <tr key={item.id}>
+                          <td>
+                            <div className="text-break" style={{ maxWidth: '300px' }}>
+                              <strong 
+                                style={{ cursor: 'pointer', color: '#0d6efd' }}
+                                onClick={() => {
+                                  const url = generateAzurePortalUrl(item.id);
+                                  window.open(url, '_blank', 'noopener,noreferrer');
+                                }}
+                                title="Click to open resource in Azure Portal"
+                              >
+                                {item.name}
+                              </strong>
+                            </div>
+                          </td>
+                          <td>
+                            <div className="text-break" style={{ maxWidth: '250px' }}>
+                              <Badge bg="secondary" className="border border-secondary text-secondary bg-transparent small">
+                                {item.type}
+                              </Badge>
+                            </div>
+                          </td>
+                          <td>
+                            {item.resourceGroup ? (
+                              <Badge 
+                                bg="info" 
+                                className="text-break small" 
+                                style={{ cursor: 'pointer', whiteSpace: 'normal', border: '1px solid #1e40af' }}
+                                onClick={() => {
+                                  const url = generateResourceGroupUrl(selectedSubscription?.id || '', item.resourceGroup!);
+                                  window.open(url, '_blank', 'noopener,noreferrer');
+                                }}
+                                title="Click to open Resource Group in Azure Portal"
+                              >
+                                {item.resourceGroup}
+                              </Badge>
+                            ) : (
+                              <span className="text-muted">—</span>
+                            )}
+                          </td>
+                          <td>
+                            {item.location ? (
+                              <Badge bg="secondary" className="border border-secondary text-secondary bg-transparent small">{item.location}</Badge>
+                            ) : (
+                              <span className="text-muted">—</span>
+                            )}
+                          </td>
+                          <td>
+                            {item.owners && item.owners.length > 0 ? (
+                              <div className="d-flex flex-wrap gap-1">
+                                {item.owners.map((owner, index) => (
+                                  <Badge key={index} bg="success" className="border border-success text-success bg-transparent text-break small">
+                                    {owner}
+                                  </Badge>
+                                ))}
+                              </div>
+                            ) : (
+                              <span className="text-muted">—</span>
+                            )}
+                          </td>
+                          <td>
+                            <div style={{ maxWidth: '200px' }}>
+                              {renderTags(item.tags)}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </Table>
+                </div>
+              ) : (
+                <Row className="g-3">
+                  {filteredItems.map(item => (
+                    <Col key={item.id} md={6} lg={4}>
+                                            <Card className="h-100">
+                        <Card.Body>
+                          <Card.Title 
+                            className="h6 text-break" 
+                            style={{ cursor: 'pointer', color: '#0d6efd' }}
+                            onClick={() => {
+                              const url = generateAzurePortalUrl(item.id);
+                              window.open(url, '_blank', 'noopener,noreferrer');
+                            }}
+                            title="Click to open resource in Azure Portal"
+                          >
+                            {item.name}
+                          </Card.Title>
                           <div className="mb-2">
-                            <small className="text-muted">Owners:</small>
-                            <div className="d-flex flex-wrap gap-1 mt-1">
-                              {item.owners.map((owner, index) => (
-                                <Badge key={index} bg="success" className="border border-success text-success bg-transparent small">
-                                  {owner}
-                                </Badge>
-                              ))}
-                            </div>
+                            <code className="text-primary small">{item.type}</code>
                           </div>
-                        )}
-                        {item.tags && Object.keys(item.tags).length > 0 && (
-                          <div>
-                            <small className="text-muted">Tags:</small>
-                            <div className="mt-1">
-                              {renderTagsForCards(item.tags)}
-                            </div>
+                          <div className="mb-2">
+                            {item.resourceGroup && (
+                              <Badge 
+                                bg="info" 
+                                className="me-1 card-resource-group-badge" 
+                                style={{ cursor: 'pointer' }}
+                                onClick={() => {
+                                  const url = generateResourceGroupUrl(selectedSubscription?.id || '', item.resourceGroup!);
+                                  window.open(url, '_blank', 'noopener,noreferrer');
+                                }}
+                                title="Click to open Resource Group in Azure Portal"
+                              >
+                                {item.resourceGroup}
+                              </Badge>
+                            )}
+                            {item.location && (
+                              <Badge bg="secondary">{item.location}</Badge>
+                            )}
                           </div>
-                        )}
-                      </Card.Body>
-                    </Card>
-                  </Col>
-                ))}
-              </Row>
-            )}
+                          {item.owners && item.owners.length > 0 && (
+                            <div className="mb-2">
+                              <small className="text-muted">Owners:</small>
+                              <div className="d-flex flex-wrap gap-1 mt-1">
+                                {item.owners.map((owner, index) => (
+                                  <Badge key={index} bg="success" className="border border-success text-success bg-transparent small">
+                                    {owner}
+                                  </Badge>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          {item.tags && Object.keys(item.tags).length > 0 && (
+                            <div>
+                              <small className="text-muted">Tags:</small>
+                              <div className="mt-1">
+                                {renderTagsForCards(item.tags)}
+                              </div>
+                            </div>
+                          )}
+                        </Card.Body>
+                      </Card>
+                    </Col>
+                  ))}
+                </Row>
+              )}
 
-            {filteredItems.length === 0 && items.length > 0 && (
-              <div className="text-center text-muted py-4">
-                <p className="mb-0">No resources match the current filters.</p>
-                <Button variant="link" size="sm" onClick={clearFilters} className="p-0">
-                  Clear all filters
-                </Button>
-              </div>
-            )}
-          </Card.Body>
-        </Card>
-      )}
-
-      {items.length === 0 && !loading && !error && selectedSubscription && (
-        <Card className="empty-state-card">
-          <Card.Body>
-            <p className="mb-0">No resources found in {selectedSubscription.name}. Click "Query Resources" to get started.</p>
-          </Card.Body>
-        </Card>
-      )}
-
-      {!selectedSubscription && !loading && !error && (
-        <Card className="empty-state-card">
-          <Card.Body>
-            <p className="mb-0">Please select a tenant and subscription to query Azure resources.</p>
-          </Card.Body>
-        </Card>
-      )}
+              {filteredItems.length === 0 && items.length > 0 && (
+                <div className="text-center text-muted py-4">
+                  <p className="mb-0">No resources match the current filters.</p>
+                  <Button variant="link" size="sm" onClick={clearFilters} className="p-0">
+                    Clear all filters
+                  </Button>
+                </div>
+              )}
+            </>
+          ) : (
+            /* Empty state content */
+            <div className="text-center text-muted py-4">
+              {loading ? (
+                <div className="d-flex align-items-center justify-content-center">
+                  <Spinner animation="border" size="sm" className="me-2" />
+                  <span>Loading resources...</span>
+                </div>
+              ) : error ? (
+                <div>
+                  <p className="mb-0">An error occurred while loading resources.</p>
+                  <small>Please try again or check your permissions.</small>
+                </div>
+              ) : selectedSubscription ? (
+                <div>
+                  <p className="mb-0">No resources found in {selectedSubscription.name}.</p>
+                  <small>Click "Query Resources" to get started.</small>
+                </div>
+              ) : (
+                <div>
+                  <p className="mb-0">Please select a tenant and subscription to query Azure resources.</p>
+                </div>
+              )}
+            </div>
+          )}
+        </Card.Body>
+      </Card>
     </div>
   );
 };

@@ -150,6 +150,65 @@
   margin-bottom: 2rem;
 }
 
+/* Hero Section Styling */
+.hero-section {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: calc(100vh - 200px); /* Account for header height */
+  padding: 2rem 0;
+}
+
+.hero-content {
+  text-align: center;
+  max-width: 600px;
+  padding: 0 1rem;
+}
+
+.hero-title {
+  font-size: 3rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin-bottom: 1.5rem;
+  line-height: 1.2;
+  letter-spacing: -0.025em;
+}
+
+.hero-description {
+  font-size: 1.25rem;
+  color: #64748b;
+  line-height: 1.6;
+  margin-bottom: 0;
+  font-weight: 400;
+}
+
+/* Responsive hero adjustments */
+@media (max-width: 768px) {
+  .hero-section {
+    min-height: calc(100vh - 150px);
+    padding: 1rem 0;
+  }
+  
+  .hero-title {
+    font-size: 2.25rem;
+    margin-bottom: 1rem;
+  }
+  
+  .hero-description {
+    font-size: 1.125rem;
+  }
+}
+
+@media (max-width: 576px) {
+  .hero-title {
+    font-size: 1.875rem;
+  }
+  
+  .hero-description {
+    font-size: 1rem;
+  }
+}
+
 /* Sophisticated User Profile Styling */
 .user-profile-container {
   position: relative;
@@ -267,7 +326,7 @@
   word-break: break-word;
 }
 
-/* Sophisticated Sign In Button Styling */
+/* Modern Sign In Button Styling - 2025 Best Practices */
 .signin-container {
   position: relative;
 }
@@ -281,25 +340,47 @@
   font-weight: 600;
   font-size: 0.875rem;
   cursor: pointer;
-  transition: all 0.2s ease;
-  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.2);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 1px 3px rgba(59, 130, 246, 0.12), 0 1px 2px rgba(59, 130, 246, 0.24);
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.signin-button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.5s;
 }
 
 .signin-button:hover {
   background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
   transform: translateY(-1px);
-  box-shadow: 0 4px 8px rgba(59, 130, 246, 0.3);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25), 0 2px 4px rgba(59, 130, 246, 0.15);
+}
+
+.signin-button:hover::before {
+  left: 100%;
 }
 
 .signin-button:active {
   transform: translateY(0);
-  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.2);
+  box-shadow: 0 1px 3px rgba(59, 130, 246, 0.12), 0 1px 2px rgba(59, 130, 246, 0.24);
 }
 
-/* Sophisticated Sign Out Styling */
+.signin-button:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+/* Modern Sign Out Styling - 2025 Best Practices */
 .signout-container {
   position: relative;
 }
@@ -310,16 +391,47 @@
   border-radius: 8px;
   padding: 0.5rem 1rem;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   font-size: 0.875rem;
   font-weight: 500;
   color: #4a5568;
+  position: relative;
+  overflow: hidden;
+}
+
+.signout-button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  z-index: -1;
 }
 
 .signout-button:hover {
   background: #f8fafc;
   border-color: #cbd5e0;
   color: #2d3748;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.signout-button:hover::before {
+  opacity: 1;
+}
+
+.signout-button:active {
+  transform: translateY(0);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.signout-button:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
 }
 
 .signout-dropdown {
@@ -513,8 +625,8 @@
 /* Dropdown Styling */
 .dropdown-toggle {
   border: 1px solid #e2e8f0;
-  background: #ffffff;
-  color: #374151;
+  background: #ffffff !important;
+  color: #374151 !important;
   border-radius: 8px;
   font-weight: 500;
   transition: all 0.2s ease;
@@ -522,13 +634,40 @@
 
 .dropdown-toggle:hover {
   border-color: #d1d5db;
-  background: #f9fafb;
-  color: #111827;
+  background: #f9fafb !important;
+  color: #111827 !important;
 }
 
 .dropdown-toggle:focus {
   border-color: #3b82f6;
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  background: #ffffff !important;
+  color: #374151 !important;
+}
+
+.dropdown-toggle:active {
+  background: #f9fafb !important;
+  color: #111827 !important;
+}
+
+/* Ensure Bootstrap dropdown buttons have proper contrast */
+.btn-outline-secondary {
+  background: #ffffff !important;
+  color: #374151 !important;
+  border-color: #e2e8f0 !important;
+}
+
+.btn-outline-secondary:hover {
+  background: #f9fafb !important;
+  color: #111827 !important;
+  border-color: #d1d5db !important;
+}
+
+.btn-outline-secondary:focus {
+  background: #ffffff !important;
+  color: #374151 !important;
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1) !important;
 }
 
 .dropdown-menu {
@@ -536,7 +675,7 @@
   border-radius: 8px;
   box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
   padding: 0.25rem;
-  background: #ffffff;
+  background: #ffffff !important;
 }
 
 .dropdown-item {
@@ -544,17 +683,53 @@
   padding: 0.5rem 0.75rem;
   font-weight: 400;
   transition: all 0.2s ease;
-  color: #374151;
+  color: #374151 !important;
+  background: transparent !important;
 }
 
 .dropdown-item:hover {
-  background: #f3f4f6;
-  color: #111827;
+  background: #f3f4f6 !important;
+  color: #111827 !important;
 }
 
 .dropdown-item.active {
-  background: #3b82f6;
-  color: #ffffff;
+  background: #3b82f6 !important;
+  color: #ffffff !important;
+}
+
+.dropdown-item:focus {
+  background: #f3f4f6 !important;
+  color: #111827 !important;
+}
+
+/* Override Bootstrap's dark theme if present */
+.dropdown-menu.show {
+  background: #ffffff !important;
+}
+
+.dropdown-menu .dropdown-item {
+  background: transparent !important;
+  color: #374151 !important;
+}
+
+.dropdown-menu .dropdown-item:hover,
+.dropdown-menu .dropdown-item:focus {
+  background: #f3f4f6 !important;
+  color: #111827 !important;
+}
+
+.dropdown-menu .dropdown-item.active {
+  background: #3b82f6 !important;
+  color: #ffffff !important;
+}
+
+/* Ensure text-muted elements in dropdowns have good contrast */
+.dropdown-menu .text-muted {
+  color: #6b7280 !important;
+}
+
+.dropdown-menu .dropdown-item.active .text-muted {
+  color: #e5e7eb !important;
 }
 
 /* Unified Section Styling - No Competing Colors */

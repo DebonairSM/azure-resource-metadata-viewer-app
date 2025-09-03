@@ -53,12 +53,13 @@ function AppRoot() {
           <Dashboard />
         </AuthenticatedTemplate>
         <UnauthenticatedTemplate>
-          <div className="text-center">
-            <h2>Welcome to Azure Resource Metadata Viewer</h2>
-            <p className="lead mb-4">
-              Sign in with your Microsoft account to view and manage Azure resources across multiple tenants.
-            </p>
-            <SignInButton />
+          <div className="hero-section">
+            <div className="hero-content">
+              <h1 className="hero-title">Welcome to Azure Resource Metadata Viewer</h1>
+              <p className="hero-description">
+                Sign in with your Microsoft account to view and manage Azure resources across multiple tenants.
+              </p>
+            </div>
           </div>
         </UnauthenticatedTemplate>
       </PageLayout>

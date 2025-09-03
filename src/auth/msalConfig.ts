@@ -2,6 +2,7 @@ import { PublicClientApplication, type Configuration, LogLevel } from '@azure/ms
 
 // Get configuration from environment variables
 const clientId = import.meta.env.VITE_AZURE_CLIENT_ID as string
+// Default to 'common' for multi-tenant support unless specifically configured for single-tenant
 const tenantId = import.meta.env.VITE_AZURE_TENANT_ID as string || 'common'
 
 if (!clientId) {

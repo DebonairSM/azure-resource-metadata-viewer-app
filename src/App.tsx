@@ -4,7 +4,6 @@ import { PublicClientApplication } from '@azure/msal-browser';
 import { msalInstance } from './auth/msalConfig';
 import { PageLayout } from './components/PageLayout';
 import { Dashboard } from './components/Dashboard';
-import { SignInButton } from './components/SignInButton';
 import { ConfigSetup } from './components/ConfigSetup';
 
 // Import Bootstrap CSS
@@ -15,26 +14,44 @@ function AppRoot() {
   const [clientId, setClientId] = useState<string | null>(null);
   const [currentMsalInstance, setCurrentMsalInstance] = useState(msalInstance);
 
-  const handleConfigComplete = useCallback(async (newClientId: string) => {
+  const handleConfigComplete = useCallback(async (newClientId: string, newTenantId?: string) => {
     setClientId(newClientId);
-    // Create a new MSAL instance with the provided client ID
+    
+    // Create a new MSAL instance with the provided client ID and tenant
+    const authority = newTenantId && newTenantId !== 'common' 
+      ? `https://login.microsoftonline.com/${newTenantId}`
+      : 'https://login.microsoftonline.com/common';
+    
     const newConfig = {
       auth: {
         clientId: newClientId,
-        authority: 'https://login.microsoftonline.com/common',
+        authority: authority,
         redirectUri: window.location.origin,
+        postLogoutRedirectUri: window.location.origin,
       },
       cache: {
         cacheLocation: 'localStorage' as const,
         storeAuthStateInCookie: false,
+        secureCookies: false,
       },
+      system: {
+        loggerOptions: {
+          loggerCallback: (level: any, message: string, containsPii: boolean) => {
+            if (containsPii) {
+              return;
+            }
+            console.log(`[MSAL ${level}] ${message}`);
+          },
+          logLevel: 0 // LogLevel.Verbose
+        }
+      }
     };
     const newInstance = new PublicClientApplication(newConfig);
     
     // Initialize the new MSAL instance
     try {
       await newInstance.initialize();
-      console.log('New MSAL instance initialized successfully');
+      console.log(`New MSAL instance initialized successfully with authority: ${authority}`);
       setCurrentMsalInstance(newInstance);
     } catch (error) {
       console.error('Failed to initialize new MSAL instance:', error);

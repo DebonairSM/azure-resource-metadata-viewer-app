@@ -2,28 +2,56 @@ import React, { useState, useEffect } from 'react';
 import { Card, Form, Button, Alert, Row, Col } from 'react-bootstrap';
 
 interface ConfigSetupProps {
-  onConfigComplete: (clientId: string) => void;
+  onConfigComplete: (clientId: string, tenantId?: string) => void;
 }
 
 export const ConfigSetup: React.FC<ConfigSetupProps> = ({ onConfigComplete }) => {
   const [clientId, setClientId] = useState('');
+  const [tenantId, setTenantId] = useState('');
+  const [selectedCompany, setSelectedCompany] = useState('');
   const [isValid, setIsValid] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
+
+  // Predefined company configurations
+  const companyConfigs = {
+    'signature': {
+      name: 'Signature Aviation',
+      clientId: '9c63ee73-3247-487e-b850-78f8658aa6c1',
+      tenantId: 'common' // Will be updated with actual tenant ID
+    },
+    'grandetech': {
+      name: 'Grande Tech',
+      clientId: '', // Will need to be configured
+      tenantId: 'common' // Will be updated with actual tenant ID
+    }
+  };
 
   // Check if we have a client ID from environment
   useEffect(() => {
     const envClientId = import.meta.env.VITE_AZURE_CLIENT_ID;
+    const envTenantId = import.meta.env.VITE_AZURE_TENANT_ID;
     if (envClientId && envClientId !== 'your-client-id-here') {
       setClientId(envClientId);
+      setTenantId(envTenantId || 'common');
       setIsValid(true);
-      onConfigComplete(envClientId);
+      onConfigComplete(envClientId, envTenantId);
     }
   }, [onConfigComplete]);
+
+  const handleCompanySelect = (companyKey: string) => {
+    const config = companyConfigs[companyKey as keyof typeof companyConfigs];
+    if (config) {
+      setSelectedCompany(companyKey);
+      setClientId(config.clientId);
+      setTenantId(config.tenantId);
+      setIsValid(validateClientId(config.clientId));
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (isValid) {
-      onConfigComplete(clientId);
+      onConfigComplete(clientId, tenantId);
     }
   };
 
@@ -48,11 +76,28 @@ export const ConfigSetup: React.FC<ConfigSetupProps> = ({ onConfigComplete }) =>
             </Card.Header>
             <Card.Body>
               <p className="text-muted mb-4">
-                Enter your Azure AD App Registration Client ID to get started. 
-                This allows you to sign in with any Azure tenant you have access to.
+                Select your company or enter your Azure AD App Registration details to get started.
               </p>
 
               <Form onSubmit={handleSubmit}>
+                <Form.Group className="mb-3">
+                  <Form.Label>Select Company (Optional)</Form.Label>
+                  <Form.Select 
+                    value={selectedCompany} 
+                    onChange={(e) => handleCompanySelect(e.target.value)}
+                  >
+                    <option value="">Choose a company...</option>
+                    {Object.entries(companyConfigs).map(([key, config]) => (
+                      <option key={key} value={key}>
+                        {config.name}
+                      </option>
+                    ))}
+                  </Form.Select>
+                  <Form.Text className="text-muted">
+                    Pre-configured company settings will auto-fill the fields below.
+                  </Form.Text>
+                </Form.Group>
+
                 <Form.Group className="mb-3">
                   <Form.Label>Azure AD Client ID</Form.Label>
                   <Form.Control
@@ -65,6 +110,19 @@ export const ConfigSetup: React.FC<ConfigSetupProps> = ({ onConfigComplete }) =>
                   />
                   <Form.Text className="text-muted">
                     This is the Application (client) ID from your Azure AD app registration.
+                  </Form.Text>
+                </Form.Group>
+
+                <Form.Group className="mb-3">
+                  <Form.Label>Tenant ID (Optional)</Form.Label>
+                  <Form.Control
+                    type="text"
+                    placeholder="common or specific-tenant-id"
+                    value={tenantId}
+                    onChange={(e) => setTenantId(e.target.value)}
+                  />
+                  <Form.Text className="text-muted">
+                    Use 'common' for multi-tenant apps, or specific tenant ID for single-tenant apps.
                   </Form.Text>
                 </Form.Group>
 

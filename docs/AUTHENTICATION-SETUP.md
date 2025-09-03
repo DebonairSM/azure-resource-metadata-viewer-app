@@ -61,16 +61,38 @@ If you have access to an existing app registration in a different tenant:
 Create a `.env` file in your project root with:
 
 ```env
-# For multi-tenant app registration
-VITE_AZURE_CLIENT_ID=your-new-client-id-here
+# Azure AD App Registration Configuration
+# Application (client) ID from your app registration
+VITE_AZURE_CLIENT_ID=your-client-id-here
+
+# Directory (tenant) ID - Use 'common' for multi-tenant support
+# For multi-tenant app registration (recommended):
 VITE_AZURE_TENANT_ID=common
 
-# OR for single-tenant app registration
-# VITE_AZURE_CLIENT_ID=your-client-id-here
-# VITE_AZURE_TENANT_ID=specific-tenant-id-here
+# For single-tenant app registration (specific tenant only):
+# VITE_AZURE_TENANT_ID=your-specific-tenant-id-here
 
-VITE_COMPANY_NAME="Azure Resource Viewer"
+# Application metadata
+VITE_COMPANY_NAME="Azure Resource Metadata Viewer"
 VITE_APP_ENV=development
+```
+
+### Multi-Tenant Configuration (Recommended)
+
+The application is now configured to support multiple Azure AD tenants by default:
+
+- **Authority**: Uses `https://login.microsoftonline.com/common` for multi-tenant support
+- **Account Selection**: Users can select from multiple accounts/tenants during sign-in
+- **Tenant Switching**: Users can switch between different tenants without signing out
+- **Fresh Authentication**: Options to clear cache and force account selection
+
+### Single-Tenant Configuration
+
+If you need to restrict access to a specific tenant only:
+
+```env
+VITE_AZURE_CLIENT_ID=your-client-id-here
+VITE_AZURE_TENANT_ID=your-specific-tenant-id-here
 ```
 
 ## Testing the Configuration
@@ -87,7 +109,23 @@ VITE_APP_ENV=development
    - Or manually clear browser cache and cookies
 4. **Check the browser console** for any error messages
 
-## Force Fresh Authentication
+## Multi-Tenant Features
+
+The application now includes comprehensive multi-tenant support:
+
+### Enhanced Sign-In Options
+- **Standard Sign In**: Quick authentication using cached credentials
+- **Fresh Sign In**: Forces account selection and clears cache
+- **Popup & Redirect**: Multiple authentication flow options
+- **Tenant Selection**: Automatic tenant detection and switching
+
+### User Profile Features
+- **Tenant Information**: Shows current tenant ID and name
+- **Account Details**: Displays user email, account ID, and permissions
+- **Tenant Switching**: Switch between different tenants without full sign-out
+- **Sign Out Options**: Complete sign-out with cache clearing
+
+### Force Fresh Authentication
 
 If the application is bypassing the sign-in prompt or using cached credentials from the wrong tenant:
 
@@ -96,12 +134,17 @@ If the application is bypassing the sign-in prompt or using cached credentials f
 - Select "🔄 Fresh Sign In (Popup)" or "🔄 Fresh Sign In (Redirect)"
 - This will clear the cache and force account selection
 
-### Option 2: Clear Cache Manually
+### Option 2: Switch Tenant/Account
+- Click on your user profile (top right)
+- Select "🔄 Switch Tenant/Account"
+- This will prompt for account selection across all available tenants
+
+### Option 3: Clear Cache Manually
 - Click the "Sign Out" dropdown
 - Select "🗑️ Clear Cache & Reload"
 - This will clear all MSAL cache and reload the page
 
-### Option 3: Browser-Level Clearing
+### Option 4: Browser-Level Clearing
 - Clear browser cache and cookies
 - Sign out of all Azure accounts in your browser
 - Use incognito/private browsing mode

@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useMsal } from '@azure/msal-react';
+import { forceFreshAuthentication } from '../auth/msalConfig';
 
 export const UserProfile: React.FC = () => {
-  const { accounts } = useMsal();
+  const { accounts, instance } = useMsal();
   const [isOpen, setIsOpen] = useState(false);
   const [permissions, setPermissions] = useState<string[]>([]);
+  const [tenantInfo, setTenantInfo] = useState<{id: string, name: string} | null>(null);
   const account = accounts[0];
 
   if (!account) {
@@ -14,11 +16,19 @@ export const UserProfile: React.FC = () => {
   const displayName = account.name || account.username || 'User';
   const email = account.username || '';
 
-  // Extract permissions from account claims
+  // Extract permissions and tenant info from account claims
   useEffect(() => {
     if (account && account.idTokenClaims) {
       const claims = account.idTokenClaims as any;
       const extractedPermissions: string[] = [];
+      
+      // Extract tenant information
+      if (claims.tid) {
+        setTenantInfo({
+          id: claims.tid,
+          name: claims.iss?.includes('common') ? 'Multi-Tenant' : claims.tfp || 'Unknown Tenant'
+        });
+      }
       
       // Extract roles from claims
       if (claims.roles) {
@@ -44,6 +54,29 @@ export const UserProfile: React.FC = () => {
     }
   }, [account]);
 
+  const handleSwitchTenant = async () => {
+    await forceFreshAuthentication();
+    // Trigger fresh sign in with account selection
+    const loginRequest = {
+      scopes: ['https://management.azure.com/user_impersonation', 'User.Read', 'Directory.Read.All'],
+      prompt: 'select_account'
+    };
+    
+    try {
+      await instance.loginPopup(loginRequest);
+    } catch (error) {
+      console.error('Failed to switch tenant:', error);
+    }
+  };
+
+  const handleSignOut = async () => {
+    try {
+      await instance.logoutPopup();
+    } catch (error) {
+      console.error('Failed to sign out:', error);
+    }
+  };
+
   return (
     <div className="user-profile-container">
       <button 
@@ -64,12 +97,28 @@ export const UserProfile: React.FC = () => {
               <small className="user-info-label">Signed in as</small>
               <div className="user-info-value">{email}</div>
             </div>
+            
+            {tenantInfo && (
+              <div className="user-info-item">
+                <small className="user-info-label">Tenant</small>
+                <div className="user-info-value">
+                  <div className="tenant-info">
+                    <span className="tenant-name">{tenantInfo.name}</span>
+                    <small className="tenant-id text-muted">
+                      <code>{tenantInfo.id}</code>
+                    </small>
+                  </div>
+                </div>
+              </div>
+            )}
+            
             <div className="user-info-item">
               <small className="user-info-label">Account ID</small>
               <div className="user-info-value">
                 <code>{account.localAccountId}</code>
               </div>
             </div>
+            
             <div className="user-info-item">
               <small className="user-info-label">Permissions & Roles</small>
               <div className="user-info-value">
@@ -82,6 +131,21 @@ export const UserProfile: React.FC = () => {
                 </div>
               </div>
             </div>
+          </div>
+          
+          <div className="user-actions">
+            <button 
+              className="btn btn-outline-primary btn-sm w-100 mb-2"
+              onClick={handleSwitchTenant}
+            >
+              🔄 Switch Tenant/Account
+            </button>
+            <button 
+              className="btn btn-outline-danger btn-sm w-100"
+              onClick={handleSignOut}
+            >
+              🚪 Sign Out
+            </button>
           </div>
         </div>
       )}

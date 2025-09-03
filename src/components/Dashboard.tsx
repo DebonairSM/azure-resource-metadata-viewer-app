@@ -10,12 +10,13 @@ import {
   Row,
   Col,
   Dropdown,
-  DropdownButton
+  DropdownButton,
+  Modal
 } from 'react-bootstrap';
 import { useMsal } from '@azure/msal-react';
 import type { AccountInfo, AuthenticationResult } from '@azure/msal-browser';
 import { msalInstance, ARM_SCOPE, GRAPH_SCOPES } from '../auth/msalConfig';
-import { fetchAllOwnerRoleAssignments, fetchAllResources, parseResourceGroupFromId } from '../api/arm';
+import { fetchAllOwnerRoleAssignments, fetchAllResources, parseResourceGroupFromId, deleteResource } from '../api/arm';
 import { getPrincipalsByIds } from '../api/graph';
 import { azureAccountManager, type AzureSubscription, type AzureTenant } from '../api/azureAccounts';
 // import { MultiAccountSelector } from './MultiAccountSelector';
@@ -84,6 +85,12 @@ export const Dashboard: React.FC = () => {
   
   // State for view mode
   const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
+  
+  // State for delete operations
+  const [deleteModalShow, setDeleteModalShow] = useState(false);
+  const [resourceToDelete, setResourceToDelete] = useState<ResourceItem | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const canQuery = useMemo(() => selectedSubscriptions.length > 0 && !!account, [selectedSubscriptions, account]);
 
@@ -331,6 +338,43 @@ export const Dashboard: React.FC = () => {
       setLoading(false);
     }
   }, [account, canQuery, selectedSubscriptions]);
+
+  // Handle delete resource
+  const handleDeleteResource = (resource: ResourceItem) => {
+    setResourceToDelete(resource);
+    setDeleteError(null);
+    setDeleteModalShow(true);
+  };
+
+  const confirmDeleteResource = async () => {
+    if (!resourceToDelete || !account) return;
+    
+    setDeleting(true);
+    setDeleteError(null);
+    
+    try {
+      const armToken = await acquireTokenSilentOrPopup(account, [ARM_SCOPE]);
+      await deleteResource(resourceToDelete.id, armToken.accessToken);
+      
+      // Remove the deleted resource from the items list
+      setItems(prevItems => prevItems.filter(item => item.id !== resourceToDelete.id));
+      
+      // Close modal and reset state
+      setDeleteModalShow(false);
+      setResourceToDelete(null);
+    } catch (e: unknown) {
+      const errorMessage = e instanceof Error ? e.message : 'Failed to delete resource';
+      setDeleteError(errorMessage);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const cancelDeleteResource = () => {
+    setDeleteModalShow(false);
+    setResourceToDelete(null);
+    setDeleteError(null);
+  };
 
   const renderTags = (tags?: Record<string, string>) => {
     if (!tags || Object.keys(tags).length === 0) {
@@ -670,11 +714,12 @@ export const Dashboard: React.FC = () => {
                     <thead>
                       <tr>
                         <th style={{ width: '18%', minWidth: '140px' }}>Name</th>
-                        <th style={{ width: '22%', minWidth: '220px' }}>Type</th>
-                        <th style={{ width: '15%', minWidth: '130px' }}>Resource Group</th>
-                        <th style={{ width: '12%', minWidth: '100px' }}>Location</th>
-                        <th style={{ width: '15%', minWidth: '120px' }}>Owners</th>
-                        <th style={{ width: '18%', minWidth: '180px' }}>Tags</th>
+                        <th style={{ width: '20%', minWidth: '200px' }}>Type</th>
+                        <th style={{ width: '13%', minWidth: '120px' }}>Resource Group</th>
+                        <th style={{ width: '10%', minWidth: '90px' }}>Location</th>
+                        <th style={{ width: '13%', minWidth: '110px' }}>Owners</th>
+                        <th style={{ width: '16%', minWidth: '160px' }}>Tags</th>
+                        <th style={{ width: '10%', minWidth: '80px' }}>Actions</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -745,6 +790,21 @@ export const Dashboard: React.FC = () => {
                               {renderTags(item.tags)}
                             </div>
                           </td>
+                          <td>
+                            <div className="d-flex gap-1">
+                              <Button
+                                variant="outline-danger"
+                                size="sm"
+                                onClick={() => handleDeleteResource(item)}
+                                title="Delete resource"
+                                className="delete-btn"
+                              >
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                                  <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                                </svg>
+                              </Button>
+                            </div>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -810,6 +870,20 @@ export const Dashboard: React.FC = () => {
                               </div>
                             </div>
                           )}
+                          <div className="mt-3 pt-2 border-top">
+                            <Button
+                              variant="outline-danger"
+                              size="sm"
+                              onClick={() => handleDeleteResource(item)}
+                              title="Delete resource"
+                              className="w-100"
+                            >
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" className="me-1">
+                                <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                              </svg>
+                              Delete
+                            </Button>
+                          </div>
                         </Card.Body>
                       </Card>
                     </Col>
@@ -858,6 +932,94 @@ export const Dashboard: React.FC = () => {
           )}
         </Card.Body>
       </Card>
+
+      {/* Delete Confirmation Modal */}
+      <Modal show={deleteModalShow} onHide={cancelDeleteResource} centered>
+        <Modal.Header closeButton>
+          <Modal.Title className="text-danger">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" className="me-2">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+            </svg>
+            Confirm Resource Deletion
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {deleteError && (
+            <Alert variant="danger" className="mb-3">
+              <strong>Error:</strong> {deleteError}
+            </Alert>
+          )}
+          
+          <div className="mb-3">
+            <p className="mb-2">
+              <strong>⚠️ Warning:</strong> This action cannot be undone. The following resource will be permanently deleted:
+            </p>
+            
+            {resourceToDelete && (
+              <div className="bg-light p-3 rounded border">
+                <div className="mb-2">
+                  <strong>Name:</strong> <span className="text-primary">{resourceToDelete.name}</span>
+                </div>
+                <div className="mb-2">
+                  <strong>Type:</strong> <Badge bg="secondary">{resourceToDelete.type}</Badge>
+                </div>
+                {resourceToDelete.resourceGroup && (
+                  <div className="mb-2">
+                    <strong>Resource Group:</strong> <Badge bg="info">{resourceToDelete.resourceGroup}</Badge>
+                  </div>
+                )}
+                {resourceToDelete.location && (
+                  <div>
+                    <strong>Location:</strong> <Badge bg="secondary">{resourceToDelete.location}</Badge>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          <Alert variant="warning" className="mb-3">
+            <div className="fw-bold mb-2">Before proceeding, ensure:</div>
+            <ul className="mb-0">
+              <li>You have <strong>Owner</strong> or <strong>Contributor</strong> permissions</li>
+              <li>The resource is not protected by a <strong>CanNotDelete</strong> lock</li>
+              <li>No other resources depend on this resource</li>
+              <li>You have backed up any important data</li>
+            </ul>
+          </Alert>
+
+          <div className="text-muted small">
+            <strong>Note:</strong> If the deletion fails due to permissions or locks, you'll need to:
+            <ul className="mt-1 mb-0">
+              <li>Contact your Azure administrator for proper permissions</li>
+              <li>Remove any resource locks in the Azure Portal</li>
+            </ul>
+          </div>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={cancelDeleteResource} disabled={deleting}>
+            Cancel
+          </Button>
+          <Button 
+            variant="danger" 
+            onClick={confirmDeleteResource} 
+            disabled={deleting}
+          >
+            {deleting ? (
+              <>
+                <Spinner as="span" animation="border" size="sm" className="me-2" />
+                Deleting...
+              </>
+            ) : (
+              <>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" className="me-2">
+                  <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                </svg>
+                Delete Resource
+              </>
+            )}
+          </Button>
+        </Modal.Footer>
+      </Modal>
     </div>
   );
 };

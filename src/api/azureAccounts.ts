@@ -91,6 +91,10 @@ export class AzureAccountManager {
         defaultDomain: tenant.defaultDomain || '',
       }));
 
+      // Sort tenants by display name for better UX
+      this.tenants.sort((a, b) => a.displayName.localeCompare(b.displayName));
+
+      console.log(`Loaded ${this.tenants.length} tenants:`, this.tenants.map(t => `${t.displayName} (${t.defaultDomain})`));
       return this.tenants;
     } catch (error) {
       console.error('Error fetching tenants:', error);
@@ -100,6 +104,22 @@ export class AzureAccountManager {
 
   getSubscriptionsByTenant(tenantId: string): AzureSubscription[] {
     return this.subscriptions.filter(sub => sub.tenantId === tenantId);
+  }
+
+  async getSubscriptionsForTenant(accessToken: string, tenantId: string): Promise<AzureSubscription[]> {
+    try {
+      // Get all subscriptions first
+      const allSubscriptions = await this.getSubscriptions(accessToken);
+      
+      // Filter for the specific tenant
+      const tenantSubscriptions = allSubscriptions.filter(sub => sub.tenantId === tenantId);
+      
+      console.log(`Found ${tenantSubscriptions.length} subscriptions for tenant ${tenantId}`);
+      return tenantSubscriptions;
+    } catch (error) {
+      console.error(`Error fetching subscriptions for tenant ${tenantId}:`, error);
+      throw error;
+    }
   }
 
   getCurrentSubscriptions(): AzureSubscription[] {

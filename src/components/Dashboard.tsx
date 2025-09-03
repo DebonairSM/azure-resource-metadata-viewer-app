@@ -18,6 +18,8 @@ import { msalInstance, ARM_SCOPE, GRAPH_SCOPES } from '../auth/msalConfig';
 import { fetchAllOwnerRoleAssignments, fetchAllResources, parseResourceGroupFromId } from '../api/arm';
 import { getPrincipalsByIds } from '../api/graph';
 import { azureAccountManager, type AzureSubscription, type AzureTenant } from '../api/azureAccounts';
+// import { MultiAccountSelector } from './MultiAccountSelector';
+// import { multiAccountManager, type TenantAccount } from '../auth/multiAccountManager';
 
 interface ResourceItem {
   id: string;
@@ -78,6 +80,7 @@ export const Dashboard: React.FC = () => {
   
   // State for filtering
   const [globalSearch, setGlobalSearch] = useState('');
+  const [subscriptionSearchTerm, setSubscriptionSearchTerm] = useState('');
   
   // State for view mode
   const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
@@ -144,13 +147,27 @@ export const Dashboard: React.FC = () => {
       setTenants(tenantsData);
       setSubscriptions(subscriptionsData);
       
-      // Auto-select first tenant and subscription if available
+      // Auto-select first tenant if none selected
       if (tenantsData.length > 0 && !selectedTenant) {
-        setSelectedTenant(tenantsData[0]);
-      }
-      
-      if (subscriptionsData.length > 0 && selectedSubscriptions.length === 0) {
-        setSelectedSubscriptions([subscriptionsData[0]]);
+        const firstTenant = tenantsData[0];
+        setSelectedTenant(firstTenant);
+        
+        // Auto-select first subscription for the first tenant
+        const tenantSubscriptions = subscriptionsData.filter(sub => sub.tenantId === firstTenant.id);
+        if (tenantSubscriptions.length > 0) {
+          setSelectedSubscriptions([tenantSubscriptions[0]]);
+        }
+      } else if (selectedTenant) {
+        // Update selected subscriptions to only include those from the current tenant
+        const tenantSubscriptions = subscriptionsData.filter(sub => sub.tenantId === selectedTenant.id);
+        const validSubscriptions = selectedSubscriptions.filter(sub => 
+          tenantSubscriptions.some(ts => ts.id === sub.id)
+        );
+        if (validSubscriptions.length === 0 && tenantSubscriptions.length > 0) {
+          setSelectedSubscriptions([tenantSubscriptions[0]]);
+        } else {
+          setSelectedSubscriptions(validSubscriptions);
+        }
       }
       
     } catch (e: unknown) {
@@ -169,41 +186,17 @@ export const Dashboard: React.FC = () => {
     }
   };
 
-  // Handle tenant selection with proper authentication context switching
-  const handleTenantChange = async (tenant: AzureTenant) => {
-    if (selectedTenant?.id === tenant.id) {
-      return; // No change needed
-    }
-
-    setLoadingAccounts(true);
-    setError(null);
+  // Handle tenant selection
+  const handleTenantChange = (tenant: AzureTenant) => {
+    setSelectedTenant(tenant);
+    setItems([]); // Clear previous results
     
-    try {
-      // Clear previous state
-      setSelectedTenant(tenant);
+    // Auto-select first subscription for the new tenant
+    const tenantSubscriptions = subscriptions.filter(sub => sub.tenantId === tenant.id);
+    if (tenantSubscriptions.length > 0) {
+      setSelectedSubscriptions([tenantSubscriptions[0]]);
+    } else {
       setSelectedSubscriptions([]);
-      setItems([]);
-      
-      // Get fresh token for the selected tenant
-      const armToken = await acquireTokenSilentOrPopup(account, [ARM_SCOPE]);
-      
-      // Load subscriptions for the new tenant
-      const subscriptionsData = await azureAccountManager.getSubscriptions(armToken.accessToken);
-      
-      // Filter subscriptions for the selected tenant
-      const tenantSubscriptions = subscriptionsData.filter(sub => sub.tenantId === tenant.id);
-      setSubscriptions(tenantSubscriptions);
-      
-      // Auto-select first subscription if available
-      if (tenantSubscriptions.length > 0) {
-        setSelectedSubscriptions([tenantSubscriptions[0]]);
-      }
-      
-    } catch (e: unknown) {
-      const errorMessage = e instanceof Error ? e.message : 'Failed to switch tenant';
-      setError(`Failed to switch to tenant "${tenant.displayName}": ${errorMessage}`);
-    } finally {
-      setLoadingAccounts(false);
     }
   };
 
@@ -241,9 +234,20 @@ export const Dashboard: React.FC = () => {
 
   // Get subscriptions for selected tenant
   const getSubscriptionsForSelectedTenant = useMemo(() => {
-    if (!selectedTenant) return [];
+    if (!selectedTenant) return subscriptions; // Show all subscriptions if no tenant selected
     return subscriptions.filter(sub => sub.tenantId === selectedTenant.id);
   }, [selectedTenant, subscriptions]);
+
+  // Filter subscriptions based on search term
+  const filteredSubscriptions = useMemo(() => {
+    if (!subscriptionSearchTerm.trim()) return getSubscriptionsForSelectedTenant;
+    
+    const searchLower = subscriptionSearchTerm.toLowerCase();
+    return getSubscriptionsForSelectedTenant.filter(sub => 
+      sub.name.toLowerCase().includes(searchLower) ||
+      sub.id.toLowerCase().includes(searchLower)
+    );
+  }, [getSubscriptionsForSelectedTenant, subscriptionSearchTerm]);
 
   const onQuery = useCallback(async () => {
     if (!canQuery || !account || selectedSubscriptions.length === 0) return;
@@ -371,10 +375,24 @@ export const Dashboard: React.FC = () => {
           <Row className="g-3">
             <Col md={3}>
               <Form.Group>
-                <Form.Label>Tenant (Company)</Form.Label>
+                <Form.Label>Tenant</Form.Label>
                 <DropdownButton
                   variant="outline-secondary"
-                  title={selectedTenant ? selectedTenant.displayName : 'Select Tenant'}
+                  title={
+                    loadingAccounts ? (
+                      <span>
+                        <Spinner as="span" animation="border" size="sm" className="me-2" />
+                        Loading...
+                      </span>
+                    ) : selectedTenant ? (
+                      <div className="text-start">
+                        <div className="fw-bold">{selectedTenant.displayName}</div>
+                        <small className="text-muted">{selectedTenant.defaultDomain}</small>
+                      </div>
+                    ) : (
+                      'Select Tenant'
+                    )
+                  }
                   disabled={loadingAccounts || tenants.length === 0}
                   className="w-100"
                 >
@@ -388,16 +406,26 @@ export const Dashboard: React.FC = () => {
                         key={tenant.id} 
                         onClick={() => handleTenantChange(tenant)}
                         active={selectedTenant?.id === tenant.id}
+                        disabled={loadingAccounts}
                       >
                         <div>
-                          <strong>{tenant.displayName}</strong>
-                          <br />
+                          <div className="d-flex align-items-center">
+                            <strong>{tenant.displayName}</strong>
+                            {selectedTenant?.id === tenant.id && (
+                              <Badge bg="success" className="ms-2">Current</Badge>
+                            )}
+                          </div>
                           <small className="text-muted">{tenant.defaultDomain}</small>
                         </div>
                       </Dropdown.Item>
                     ))
                   )}
                 </DropdownButton>
+                {selectedTenant && (
+                  <small className="text-muted">
+                    Currently viewing: <strong>{selectedTenant.displayName}</strong>
+                  </small>
+                )}
               </Form.Group>
             </Col>
             
@@ -406,53 +434,95 @@ export const Dashboard: React.FC = () => {
                 <Form.Label>
                   Subscriptions ({selectedSubscriptions.length} selected)
                 </Form.Label>
-                <div className="border rounded p-2" style={{ maxHeight: '200px', overflowY: 'auto' }}>
+                <div className="subscription-selector">
                   {getSubscriptionsForSelectedTenant.length === 0 ? (
-                    <div className="text-muted text-center py-2">
+                    <div className="text-muted text-center py-3">
                       <em>No subscriptions available. Select a tenant first.</em>
                     </div>
                   ) : (
                     <>
-                      <Form.Check
-                        type="checkbox"
-                        id="select-all-subscriptions"
-                        label={
-                          <div className="d-flex align-items-center">
-                            <strong>Select All</strong>
-                            <Badge bg="secondary" className="ms-2">
-                              {getSubscriptionsForSelectedTenant.length}
-                            </Badge>
-                          </div>
-                        }
-                        checked={getSubscriptionsForSelectedTenant.every(sub => 
-                          selectedSubscriptions.some(selected => selected.id === sub.id)
-                        )}
-                        onChange={handleSelectAllSubscriptions}
-                        className="mb-2 border-bottom pb-2"
-                      />
-                      {getSubscriptionsForSelectedTenant.map((subscription) => (
-                        <Form.Check
-                          key={subscription.id}
-                          type="checkbox"
-                          id={`subscription-${subscription.id}`}
-                          label={
-                            <div>
-                              <div className="d-flex align-items-center">
-                                <strong>{subscription.name}</strong>
-                                {subscription.isDefault && (
-                                  <Badge bg="primary" className="ms-2">Default</Badge>
-                                )}
-                              </div>
-                              <small className="text-muted">
-                                {subscription.id} • {subscription.state}
-                              </small>
-                            </div>
-                          }
-                          checked={selectedSubscriptions.some(sub => sub.id === subscription.id)}
-                          onChange={() => handleSubscriptionChange(subscription)}
-                          className="mb-1"
+                      {/* Search Box */}
+                      <div className="mb-3">
+                        <Form.Control
+                          type="text"
+                          placeholder="Search subscriptions..."
+                          value={subscriptionSearchTerm}
+                          onChange={(e) => setSubscriptionSearchTerm(e.target.value)}
+                          className="subscription-search-input"
                         />
-                      ))}
+                      </div>
+
+                      {/* Quick Actions Bar */}
+                      <div className="d-flex justify-content-between align-items-center mb-3 p-2 bg-light rounded">
+                        <div className="d-flex align-items-center gap-2">
+                          <Form.Check
+                            type="checkbox"
+                            id="select-all-subscriptions"
+                            label={<strong>Select All</strong>}
+                            checked={filteredSubscriptions.every(sub => 
+                              selectedSubscriptions.some(selected => selected.id === sub.id)
+                            )}
+                            onChange={handleSelectAllSubscriptions}
+                            className="mb-0"
+                          />
+                          <Badge bg="secondary">
+                            {filteredSubscriptions.length} {subscriptionSearchTerm ? 'filtered' : 'total'}
+                          </Badge>
+                        </div>
+                        <div className="d-flex align-items-center gap-2">
+                          <Badge bg="success">
+                            {selectedSubscriptions.length} selected
+                          </Badge>
+                        </div>
+                      </div>
+
+                      {/* Compact Subscription Grid */}
+                      <div className="subscription-grid">
+                        {filteredSubscriptions.length === 0 ? (
+                          <div className="text-muted text-center py-3">
+                            <em>No subscriptions match your search.</em>
+                          </div>
+                        ) : (
+                          filteredSubscriptions.map((subscription) => (
+                            <div 
+                              key={subscription.id}
+                              className={`subscription-card ${selectedSubscriptions.some(sub => sub.id === subscription.id) ? 'selected' : ''}`}
+                              onClick={() => handleSubscriptionChange(subscription)}
+                            >
+                              <div className="d-flex align-items-start justify-content-between">
+                                <div className="flex-grow-1">
+                                  <div className="d-flex align-items-center gap-2 mb-1">
+                                    <Form.Check
+                                      type="checkbox"
+                                      checked={selectedSubscriptions.some(sub => sub.id === subscription.id)}
+                                      onChange={() => {}} // Handled by parent click
+                                      className="mb-0"
+                                    />
+                                    <strong className="subscription-name">{subscription.name}</strong>
+                                    {subscription.isDefault && (
+                                      <Badge bg="primary" className="small">Default</Badge>
+                                    )}
+                                  </div>
+                                  <div className="subscription-details">
+                                    <small 
+                                      className="text-muted d-block subscription-id"
+                                      title={`Full ID: ${subscription.id}`}
+                                    >
+                                      <strong>ID:</strong> {subscription.id}
+                                    </small>
+                                    <Badge 
+                                      bg={subscription.state === 'Enabled' ? 'success' : 'warning'} 
+                                      className="small"
+                                    >
+                                      {subscription.state}
+                                    </Badge>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
                     </>
                   )}
                 </div>
@@ -516,10 +586,18 @@ export const Dashboard: React.FC = () => {
                   <>Resource Results</>
                 )}
               </h5>
-              {items.length > 0 && (
-                <small className="text-muted">
-                  Tenant: {selectedTenant?.displayName} • Subscriptions: {selectedSubscriptions.map(sub => sub.name).join(', ')}
-                </small>
+              {items.length > 0 && selectedTenant && (
+                <div className="d-flex align-items-center gap-2">
+                  <Badge bg="primary" className="d-flex align-items-center">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" className="me-1">
+                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                    </svg>
+                    {selectedTenant.displayName}
+                  </Badge>
+                  <small className="text-muted">
+                    Subscriptions: {selectedSubscriptions.map(sub => sub.name).join(', ')}
+                  </small>
+                </div>
               )}
             </Col>
             {items.length > 0 && (
@@ -769,6 +847,11 @@ export const Dashboard: React.FC = () => {
               ) : (
                 <div>
                   <p className="mb-0">Please select a tenant and subscription to query Azure resources.</p>
+                  {tenants.length > 1 && (
+                    <small className="text-muted">
+                      You have access to {tenants.length} tenants. Use the dropdown above to switch between companies.
+                    </small>
+                  )}
                 </div>
               )}
             </div>

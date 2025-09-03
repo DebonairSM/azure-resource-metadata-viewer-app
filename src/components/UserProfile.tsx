@@ -56,10 +56,14 @@ export const UserProfile: React.FC = () => {
 
   const handleSwitchTenant = async () => {
     await forceFreshAuthentication();
-    // Trigger fresh sign in with account selection
+    // Trigger fresh sign in with account selection to allow switching between tenants
     const loginRequest = {
       scopes: ['https://management.azure.com/user_impersonation', 'User.Read', 'Directory.Read.All'],
-      prompt: 'select_account'
+      prompt: 'select_account',
+      extraQueryParameters: {
+        // Force account selection to allow switching between different tenant accounts
+        prompt: 'select_account'
+      }
     };
     
     try {

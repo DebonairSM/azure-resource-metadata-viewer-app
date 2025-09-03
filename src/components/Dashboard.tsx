@@ -46,6 +46,12 @@ const generateResourceGroupUrl = (subscriptionId: string, resourceGroupName: str
   return `${baseUrl}/#@/resource${resourceId}`;
 };
 
+// Helper function to extract subscription ID from resource ID
+const extractSubscriptionIdFromResourceId = (resourceId: string): string | null => {
+  const match = resourceId.match(/\/subscriptions\/([^\/]+)/);
+  return match ? match[1] : null;
+};
+
 async function acquireTokenSilentOrPopup(account: AccountInfo, scopes: string[]): Promise<AuthenticationResult> {
   try {
     return await msalInstance.acquireTokenSilent({ account, scopes });
@@ -62,7 +68,7 @@ export const Dashboard: React.FC = () => {
   const [tenants, setTenants] = useState<AzureTenant[]>([]);
   const [subscriptions, setSubscriptions] = useState<AzureSubscription[]>([]);
   const [selectedTenant, setSelectedTenant] = useState<AzureTenant | null>(null);
-  const [selectedSubscription, setSelectedSubscription] = useState<AzureSubscription | null>(null);
+  const [selectedSubscriptions, setSelectedSubscriptions] = useState<AzureSubscription[]>([]);
   
   // State for resource querying
   const [loading, setLoading] = useState(false);
@@ -76,7 +82,7 @@ export const Dashboard: React.FC = () => {
   // State for view mode
   const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
 
-  const canQuery = useMemo(() => !!selectedSubscription && !!account, [selectedSubscription, account]);
+  const canQuery = useMemo(() => selectedSubscriptions.length > 0 && !!account, [selectedSubscriptions, account]);
 
   // Filter items based on global search
   const filteredItems = useMemo(() => {
@@ -143,8 +149,8 @@ export const Dashboard: React.FC = () => {
         setSelectedTenant(tenantsData[0]);
       }
       
-      if (subscriptionsData.length > 0 && !selectedSubscription) {
-        setSelectedSubscription(subscriptionsData[0]);
+      if (subscriptionsData.length > 0 && selectedSubscriptions.length === 0) {
+        setSelectedSubscriptions([subscriptionsData[0]]);
       }
       
     } catch (e: unknown) {
@@ -163,16 +169,73 @@ export const Dashboard: React.FC = () => {
     }
   };
 
-  // Handle tenant selection
-  const handleTenantChange = (tenant: AzureTenant) => {
-    setSelectedTenant(tenant);
-    setSelectedSubscription(null); // Reset subscription when tenant changes
-    setItems([]); // Clear previous results
+  // Handle tenant selection with proper authentication context switching
+  const handleTenantChange = async (tenant: AzureTenant) => {
+    if (selectedTenant?.id === tenant.id) {
+      return; // No change needed
+    }
+
+    setLoadingAccounts(true);
+    setError(null);
+    
+    try {
+      // Clear previous state
+      setSelectedTenant(tenant);
+      setSelectedSubscriptions([]);
+      setItems([]);
+      
+      // Get fresh token for the selected tenant
+      const armToken = await acquireTokenSilentOrPopup(account, [ARM_SCOPE]);
+      
+      // Load subscriptions for the new tenant
+      const subscriptionsData = await azureAccountManager.getSubscriptions(armToken.accessToken);
+      
+      // Filter subscriptions for the selected tenant
+      const tenantSubscriptions = subscriptionsData.filter(sub => sub.tenantId === tenant.id);
+      setSubscriptions(tenantSubscriptions);
+      
+      // Auto-select first subscription if available
+      if (tenantSubscriptions.length > 0) {
+        setSelectedSubscriptions([tenantSubscriptions[0]]);
+      }
+      
+    } catch (e: unknown) {
+      const errorMessage = e instanceof Error ? e.message : 'Failed to switch tenant';
+      setError(`Failed to switch to tenant "${tenant.displayName}": ${errorMessage}`);
+    } finally {
+      setLoadingAccounts(false);
+    }
   };
 
   // Handle subscription selection
   const handleSubscriptionChange = (subscription: AzureSubscription) => {
-    setSelectedSubscription(subscription);
+    setSelectedSubscriptions(prev => {
+      const isSelected = prev.some(sub => sub.id === subscription.id);
+      if (isSelected) {
+        // Remove subscription if already selected
+        return prev.filter(sub => sub.id !== subscription.id);
+      } else {
+        // Add subscription if not selected
+        return [...prev, subscription];
+      }
+    });
+    setItems([]); // Clear previous results
+  };
+
+  // Handle select all subscriptions
+  const handleSelectAllSubscriptions = () => {
+    const allSubscriptions = getSubscriptionsForSelectedTenant;
+    const allSelected = allSubscriptions.every(sub => 
+      selectedSubscriptions.some(selected => selected.id === sub.id)
+    );
+    
+    if (allSelected) {
+      // Deselect all
+      setSelectedSubscriptions([]);
+    } else {
+      // Select all
+      setSelectedSubscriptions([...allSubscriptions]);
+    }
     setItems([]); // Clear previous results
   };
 
@@ -183,54 +246,71 @@ export const Dashboard: React.FC = () => {
   }, [selectedTenant, subscriptions]);
 
   const onQuery = useCallback(async () => {
-    if (!canQuery || !account || !selectedSubscription) return;
+    if (!canQuery || !account || selectedSubscriptions.length === 0) return;
     
     setLoading(true);
     setError(null);
     
     try {
       const armToken = await acquireTokenSilentOrPopup(account, [ARM_SCOPE]);
-      const [resources, ownerAssignments] = await Promise.all([
-        fetchAllResources(selectedSubscription.id, armToken.accessToken),
-        fetchAllOwnerRoleAssignments(selectedSubscription.id, armToken.accessToken),
-      ]);
+      
+      // Query all selected subscriptions in parallel
+      const subscriptionPromises = selectedSubscriptions.map(async (subscription) => {
+        const [resources, ownerAssignments] = await Promise.all([
+          fetchAllResources(subscription.id, armToken.accessToken),
+          fetchAllOwnerRoleAssignments(subscription.id, armToken.accessToken),
+        ]);
+        return { subscription, resources, ownerAssignments };
+      });
 
-      const principalIds = ownerAssignments.map(r => r.properties.principalId).filter(Boolean);
+      const subscriptionResults = await Promise.all(subscriptionPromises);
+
+      // Collect all principal IDs from all subscriptions
+      const allPrincipalIds = subscriptionResults
+        .flatMap(result => result.ownerAssignments.map(r => r.properties.principalId))
+        .filter(Boolean);
 
       // Try Graph, but proceed if not permitted
       let principalIdToName: Record<string, { displayName?: string }> = {};
       try {
         const graphToken = await acquireTokenSilentOrPopup(account, GRAPH_SCOPES);
-        principalIdToName = await getPrincipalsByIds(graphToken.accessToken, principalIds);
+        principalIdToName = await getPrincipalsByIds(graphToken.accessToken, allPrincipalIds);
       } catch {
         principalIdToName = {};
       }
 
-      const scopeToOwners = new Map<string, string[]>();
-      for (const ra of ownerAssignments) {
-        const id = ra.properties.principalId;
-        if (!id) continue;
-        const name = principalIdToName[id]?.displayName || id;
-        const list = scopeToOwners.get(ra.properties.scope) || [];
-        list.push(name);
-        scopeToOwners.set(ra.properties.scope, list);
+      // Process all resources from all subscriptions
+      const allResources: ResourceItem[] = [];
+      
+      for (const { subscription, resources, ownerAssignments } of subscriptionResults) {
+        const scopeToOwners = new Map<string, string[]>();
+        for (const ra of ownerAssignments) {
+          const id = ra.properties.principalId;
+          if (!id) continue;
+          const name = principalIdToName[id]?.displayName || id;
+          const list = scopeToOwners.get(ra.properties.scope) || [];
+          list.push(name);
+          scopeToOwners.set(ra.properties.scope, list);
+        }
+
+        const withOwners = resources.map(r => {
+          const resourceGroup = parseResourceGroupFromId(r.id);
+          const owners = scopeToOwners.get(r.id) || scopeToOwners.get(`/subscriptions/${subscription.id}`) || [];
+          return { 
+            id: r.id, 
+            name: r.name, 
+            type: r.type, 
+            location: r.location, 
+            resourceGroup, 
+            tags: r.tags, 
+            owners 
+          };
+        });
+
+        allResources.push(...withOwners);
       }
 
-      const withOwners = resources.map(r => {
-        const resourceGroup = parseResourceGroupFromId(r.id);
-        const owners = scopeToOwners.get(r.id) || scopeToOwners.get(`/subscriptions/${selectedSubscription.id}`) || [];
-        return { 
-          id: r.id, 
-          name: r.name, 
-          type: r.type, 
-          location: r.location, 
-          resourceGroup, 
-          tags: r.tags, 
-          owners 
-        };
-      });
-
-      setItems(withOwners);
+      setItems(allResources);
       clearFilters(); // Clear filters when new data is loaded
     } catch (e: unknown) {
       const errorMessage = e instanceof Error ? e.message : 'Unknown error';
@@ -246,7 +326,7 @@ export const Dashboard: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [account, canQuery, selectedSubscription]);
+  }, [account, canQuery, selectedSubscriptions]);
 
   const renderTags = (tags?: Record<string, string>) => {
     if (!tags || Object.keys(tags).length === 0) {
@@ -288,7 +368,7 @@ export const Dashboard: React.FC = () => {
           <h4 className="mb-0">Azure Account Selection</h4>
         </Card.Header>
         <Card.Body>
-          <Row className="g-3 align-items-end">
+          <Row className="g-3">
             <Col md={3}>
               <Form.Group>
                 <Form.Label>Tenant (Company)</Form.Label>
@@ -321,69 +401,98 @@ export const Dashboard: React.FC = () => {
               </Form.Group>
             </Col>
             
-            <Col md={3}>
+            <Col md={5}>
               <Form.Group>
-                <Form.Label>Subscription</Form.Label>
-                <DropdownButton
-                  variant="outline-secondary"
-                  title={selectedSubscription ? selectedSubscription.name : 'Select Subscription'}
-                  disabled={loadingAccounts || !selectedTenant || getSubscriptionsForSelectedTenant.length === 0}
-                  className="w-100"
-                >
-                  {getSubscriptionsForSelectedTenant.map((subscription) => (
-                    <Dropdown.Item 
-                      key={subscription.id} 
-                      onClick={() => handleSubscriptionChange(subscription)}
-                      active={selectedSubscription?.id === subscription.id}
-                    >
-                      <div>
-                        <strong>{subscription.name}</strong>
-                        <br />
-                        <small className="text-muted">
-                          {subscription.id} • {subscription.state}
-                          {subscription.isDefault && <Badge bg="primary" className="ms-2">Default</Badge>}
-                        </small>
-                      </div>
-                    </Dropdown.Item>
-                  ))}
-                </DropdownButton>
+                <Form.Label>
+                  Subscriptions ({selectedSubscriptions.length} selected)
+                </Form.Label>
+                <div className="border rounded p-2" style={{ maxHeight: '200px', overflowY: 'auto' }}>
+                  {getSubscriptionsForSelectedTenant.length === 0 ? (
+                    <div className="text-muted text-center py-2">
+                      <em>No subscriptions available. Select a tenant first.</em>
+                    </div>
+                  ) : (
+                    <>
+                      <Form.Check
+                        type="checkbox"
+                        id="select-all-subscriptions"
+                        label={
+                          <div className="d-flex align-items-center">
+                            <strong>Select All</strong>
+                            <Badge bg="secondary" className="ms-2">
+                              {getSubscriptionsForSelectedTenant.length}
+                            </Badge>
+                          </div>
+                        }
+                        checked={getSubscriptionsForSelectedTenant.every(sub => 
+                          selectedSubscriptions.some(selected => selected.id === sub.id)
+                        )}
+                        onChange={handleSelectAllSubscriptions}
+                        className="mb-2 border-bottom pb-2"
+                      />
+                      {getSubscriptionsForSelectedTenant.map((subscription) => (
+                        <Form.Check
+                          key={subscription.id}
+                          type="checkbox"
+                          id={`subscription-${subscription.id}`}
+                          label={
+                            <div>
+                              <div className="d-flex align-items-center">
+                                <strong>{subscription.name}</strong>
+                                {subscription.isDefault && (
+                                  <Badge bg="primary" className="ms-2">Default</Badge>
+                                )}
+                              </div>
+                              <small className="text-muted">
+                                {subscription.id} • {subscription.state}
+                              </small>
+                            </div>
+                          }
+                          checked={selectedSubscriptions.some(sub => sub.id === subscription.id)}
+                          onChange={() => handleSubscriptionChange(subscription)}
+                          className="mb-1"
+                        />
+                      ))}
+                    </>
+                  )}
+                </div>
               </Form.Group>
             </Col>
             
-            <Col md={2}>
-              <Button 
-                variant="outline-primary" 
-                onClick={loadAzureAccounts}
-                disabled={loadingAccounts}
-                className="w-100"
-              >
-                {loadingAccounts ? (
-                  <>
-                    <Spinner as="span" animation="border" size="sm" className="me-2" />
-                    Loading...
-                  </>
-                ) : (
-                  'Refresh'
-                )}
-              </Button>
-            </Col>
-            
             <Col md={4}>
-              <Button 
-                variant="primary" 
-                onClick={onQuery} 
-                disabled={!canQuery || loading}
-                className="w-100 query-resources-btn"
-              >
-                {loading ? (
-                  <>
-                    <Spinner as="span" animation="border" size="sm" className="me-2" />
-                    Loading...
-                  </>
-                ) : (
-                  'Query Resources'
-                )}
-              </Button>
+              <div className="d-flex flex-column gap-2 h-100">
+                <Button 
+                  variant="outline-primary" 
+                  onClick={loadAzureAccounts}
+                  disabled={loadingAccounts}
+                  className="w-100"
+                >
+                  {loadingAccounts ? (
+                    <>
+                      <Spinner as="span" animation="border" size="sm" className="me-2" />
+                      Loading...
+                    </>
+                  ) : (
+                    'Refresh'
+                  )}
+                </Button>
+                
+                <Button 
+                  variant="primary" 
+                  onClick={onQuery} 
+                  disabled={!canQuery || loading}
+                  className="w-100 query-resources-btn"
+                >
+                  {loading ? (
+                    <>
+                      <Spinner as="span" animation="border" size="sm" className="me-2" />
+                      Loading...
+                    </>
+                  ) : (
+                    'Query Resources'
+                  )}
+                </Button>
+              </div>
             </Col>
           </Row>
           
@@ -402,14 +511,14 @@ export const Dashboard: React.FC = () => {
             <Col>
               <h5 className="mb-0">
                 {items.length > 0 ? (
-                  <>Resources in {selectedSubscription?.name} ({filteredItems.length} of {items.length})</>
+                  <>Resources from {selectedSubscriptions.length} subscription{selectedSubscriptions.length !== 1 ? 's' : ''} ({filteredItems.length} of {items.length})</>
                 ) : (
                   <>Resource Results</>
                 )}
               </h5>
               {items.length > 0 && (
                 <small className="text-muted">
-                  Tenant: {selectedTenant?.displayName} • Subscription ID: {selectedSubscription?.id}
+                  Tenant: {selectedTenant?.displayName} • Subscriptions: {selectedSubscriptions.map(sub => sub.name).join(', ')}
                 </small>
               )}
             </Col>
@@ -521,7 +630,8 @@ export const Dashboard: React.FC = () => {
                                 className="text-break small" 
                                 style={{ cursor: 'pointer', whiteSpace: 'normal', border: '1px solid #1e40af' }}
                                 onClick={() => {
-                                  const url = generateResourceGroupUrl(selectedSubscription?.id || '', item.resourceGroup!);
+                                  const subscriptionId = extractSubscriptionIdFromResourceId(item.id) || '';
+                                  const url = generateResourceGroupUrl(subscriptionId, item.resourceGroup!);
                                   window.open(url, '_blank', 'noopener,noreferrer');
                                 }}
                                 title="Click to open Resource Group in Azure Portal"
@@ -589,7 +699,8 @@ export const Dashboard: React.FC = () => {
                                 className="me-1 card-resource-group-badge" 
                                 style={{ cursor: 'pointer' }}
                                 onClick={() => {
-                                  const url = generateResourceGroupUrl(selectedSubscription?.id || '', item.resourceGroup!);
+                                  const subscriptionId = extractSubscriptionIdFromResourceId(item.id) || '';
+                                  const url = generateResourceGroupUrl(subscriptionId, item.resourceGroup!);
                                   window.open(url, '_blank', 'noopener,noreferrer');
                                 }}
                                 title="Click to open Resource Group in Azure Portal"
@@ -650,9 +761,9 @@ export const Dashboard: React.FC = () => {
                   <p className="mb-0">An error occurred while loading resources.</p>
                   <small>Please try again or check your permissions.</small>
                 </div>
-              ) : selectedSubscription ? (
+              ) : selectedSubscriptions.length > 0 ? (
                 <div>
-                  <p className="mb-0">No resources found in {selectedSubscription.name}.</p>
+                  <p className="mb-0">No resources found in {selectedSubscriptions.length} selected subscription{selectedSubscriptions.length !== 1 ? 's' : ''}.</p>
                   <small>Click "Query Resources" to get started.</small>
                 </div>
               ) : (

@@ -86,6 +86,10 @@ export const Dashboard: React.FC = () => {
   // State for view mode
   const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
   
+  // State for sorting
+  const [sortColumn, setSortColumn] = useState<keyof ResourceItem | null>(null);
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  
   // State for delete operations
   const [deleteModalShow, setDeleteModalShow] = useState(false);
   const [resourceToDelete, setResourceToDelete] = useState<ResourceItem | null>(null);
@@ -94,38 +98,72 @@ export const Dashboard: React.FC = () => {
 
   const canQuery = useMemo(() => selectedSubscriptions.length > 0 && !!account, [selectedSubscriptions, account]);
 
-  // Filter items based on global search
-  const filteredItems = useMemo(() => {
-    if (!globalSearch.trim()) {
-      return items;
+  // Handle column sorting
+  const handleSort = (column: keyof ResourceItem) => {
+    if (sortColumn === column) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortColumn(column);
+      setSortDirection('asc');
+    }
+  };
+
+  // Filter and sort items
+  const filteredAndSortedItems = useMemo(() => {
+    let filtered = items;
+    
+    // Apply global search filter
+    if (globalSearch.trim()) {
+      const searchTerm = globalSearch.toLowerCase();
+      
+      filtered = items.filter(item => {
+        // Search in basic fields
+        const matchesName = item.name.toLowerCase().includes(searchTerm);
+        const matchesType = item.type.toLowerCase().includes(searchTerm);
+        const matchesResourceGroup = item.resourceGroup?.toLowerCase().includes(searchTerm) || false;
+        const matchesLocation = item.location?.toLowerCase().includes(searchTerm) || false;
+        
+        // Search in owners
+        const matchesOwners = item.owners?.some(owner => 
+          owner.toLowerCase().includes(searchTerm)
+        ) || false;
+        
+        // Search in tags (both keys and values)
+        const matchesTags = item.tags ? Object.entries(item.tags).some(([key, value]) => 
+          key.toLowerCase().includes(searchTerm) || value.toLowerCase().includes(searchTerm)
+        ) : false;
+        
+        return matchesName || matchesType || matchesResourceGroup || matchesLocation || matchesOwners || matchesTags;
+      });
     }
 
-    const searchTerm = globalSearch.toLowerCase();
-    
-    return items.filter(item => {
-      // Search in basic fields
-      const matchesName = item.name.toLowerCase().includes(searchTerm);
-      const matchesType = item.type.toLowerCase().includes(searchTerm);
-      const matchesResourceGroup = item.resourceGroup?.toLowerCase().includes(searchTerm) || false;
-      const matchesLocation = item.location?.toLowerCase().includes(searchTerm) || false;
-      
-      // Search in owners
-      const matchesOwners = item.owners?.some(owner => 
-        owner.toLowerCase().includes(searchTerm)
-      ) || false;
-      
-      // Search in tags (both keys and values)
-      const matchesTags = item.tags ? Object.entries(item.tags).some(([key, value]) => 
-        key.toLowerCase().includes(searchTerm) || value.toLowerCase().includes(searchTerm)
-      ) : false;
-      
-      return matchesName || matchesType || matchesResourceGroup || matchesLocation || matchesOwners || matchesTags;
-    });
-  }, [items, globalSearch]);
+    // Apply sorting
+    if (sortColumn) {
+      filtered = [...filtered].sort((a, b) => {
+        const aValue = a[sortColumn];
+        const bValue = b[sortColumn];
+        
+        // Handle undefined/null values
+        if (aValue === undefined || aValue === null) return 1;
+        if (bValue === undefined || bValue === null) return -1;
+        
+        // Convert to strings for comparison
+        const aStr = String(aValue).toLowerCase();
+        const bStr = String(bValue).toLowerCase();
+        
+        const comparison = aStr.localeCompare(bStr);
+        return sortDirection === 'asc' ? comparison : -comparison;
+      });
+    }
+
+    return filtered;
+  }, [items, globalSearch, sortColumn, sortDirection]);
 
   // Clear filters when new data is loaded
   const clearFilters = () => {
     setGlobalSearch('');
+    setSortColumn(null);
+    setSortDirection('asc');
   };
 
   // Load Azure accounts and subscriptions on component mount
@@ -625,7 +663,7 @@ export const Dashboard: React.FC = () => {
             <Col>
               <h5 className="mb-0">
                 {items.length > 0 ? (
-                  <>Resources from {selectedSubscriptions.length} subscription{selectedSubscriptions.length !== 1 ? 's' : ''} ({filteredItems.length} of {items.length})</>
+                  <>Resources from {selectedSubscriptions.length} subscription{selectedSubscriptions.length !== 1 ? 's' : ''} ({filteredAndSortedItems.length} of {items.length})</>
                 ) : (
                   <>Resource Results</>
                 )}
@@ -713,17 +751,61 @@ export const Dashboard: React.FC = () => {
                   <Table className="mb-0 table-sm">
                     <thead>
                       <tr>
-                        <th style={{ width: '18%', minWidth: '140px' }}>Name</th>
-                        <th style={{ width: '20%', minWidth: '200px' }}>Type</th>
-                        <th style={{ width: '13%', minWidth: '120px' }}>Resource Group</th>
-                        <th style={{ width: '10%', minWidth: '90px' }}>Location</th>
+                        <th 
+                          style={{ width: '18%', minWidth: '140px', cursor: 'pointer' }} 
+                          onClick={() => handleSort('name')}
+                          className="sortable-header"
+                        >
+                          Name
+                          {sortColumn === 'name' && (
+                            <span className="ms-1">
+                              {sortDirection === 'asc' ? '↑' : '↓'}
+                            </span>
+                          )}
+                        </th>
+                        <th 
+                          style={{ width: '20%', minWidth: '200px', cursor: 'pointer' }} 
+                          onClick={() => handleSort('type')}
+                          className="sortable-header"
+                        >
+                          Type
+                          {sortColumn === 'type' && (
+                            <span className="ms-1">
+                              {sortDirection === 'asc' ? '↑' : '↓'}
+                            </span>
+                          )}
+                        </th>
+                        <th 
+                          style={{ width: '13%', minWidth: '120px', cursor: 'pointer' }} 
+                          onClick={() => handleSort('resourceGroup')}
+                          className="sortable-header"
+                        >
+                          Resource Group
+                          {sortColumn === 'resourceGroup' && (
+                            <span className="ms-1">
+                              {sortDirection === 'asc' ? '↑' : '↓'}
+                            </span>
+                          )}
+                        </th>
+                        <th 
+                          style={{ width: '10%', minWidth: '90px', cursor: 'pointer' }} 
+                          onClick={() => handleSort('location')}
+                          className="sortable-header"
+                        >
+                          Location
+                          {sortColumn === 'location' && (
+                            <span className="ms-1">
+                              {sortDirection === 'asc' ? '↑' : '↓'}
+                            </span>
+                          )}
+                        </th>
                         <th style={{ width: '13%', minWidth: '110px' }}>Owners</th>
                         <th style={{ width: '16%', minWidth: '160px' }}>Tags</th>
                         <th style={{ width: '10%', minWidth: '80px' }}>Actions</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {filteredItems.map(item => (
+                      {filteredAndSortedItems.map(item => (
                         <tr key={item.id}>
                           <td>
                             <div className="text-break" style={{ maxWidth: '300px' }}>
@@ -812,7 +894,7 @@ export const Dashboard: React.FC = () => {
                 </div>
               ) : (
                 <Row className="g-3">
-                  {filteredItems.map(item => (
+                  {filteredAndSortedItems.map(item => (
                     <Col key={item.id} md={6} lg={4}>
                                             <Card className="h-100">
                         <Card.Body>
@@ -891,7 +973,7 @@ export const Dashboard: React.FC = () => {
                 </Row>
               )}
 
-              {filteredItems.length === 0 && items.length > 0 && (
+              {filteredAndSortedItems.length === 0 && items.length > 0 && (
                 <div className="text-center text-muted py-4">
                   <p className="mb-0">No resources match the current filters.</p>
                   <Button variant="link" size="sm" onClick={clearFilters} className="p-0">

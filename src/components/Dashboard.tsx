@@ -83,6 +83,7 @@ export const Dashboard: React.FC = () => {
   // State for filtering
   const [globalSearch, setGlobalSearch] = useState('');
   const [subscriptionSearchTerm, setSubscriptionSearchTerm] = useState('');
+  const [showOnlyEmptyTags, setShowOnlyEmptyTags] = useState(false);
   
   // State for view mode
   const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
@@ -138,6 +139,11 @@ export const Dashboard: React.FC = () => {
       });
     }
 
+    // Apply empty tags filter
+    if (showOnlyEmptyTags) {
+      filtered = filtered.filter(item => !item.tags || Object.keys(item.tags).length === 0);
+    }
+
     // Apply sorting
     if (sortColumn) {
       filtered = [...filtered].sort((a, b) => {
@@ -158,11 +164,12 @@ export const Dashboard: React.FC = () => {
     }
 
     return filtered;
-  }, [items, globalSearch, sortColumn, sortDirection]);
+  }, [items, globalSearch, showOnlyEmptyTags, sortColumn, sortDirection]);
 
   // Clear filters when new data is loaded
   const clearFilters = () => {
     setGlobalSearch('');
+    setShowOnlyEmptyTags(false);
     setSortColumn(null);
     setSortDirection('asc');
   };
@@ -756,7 +763,7 @@ export const Dashboard: React.FC = () => {
                     <thead>
                       <tr>
                         <th 
-                          style={{ width: '18%', minWidth: '140px', cursor: 'pointer' }} 
+                          style={{ width: '18%', minWidth: '140px', cursor: 'pointer', verticalAlign: 'top', paddingTop: '12px', paddingBottom: '0' }} 
                           onClick={() => handleSort('name')}
                           className="sortable-header"
                         >
@@ -768,7 +775,7 @@ export const Dashboard: React.FC = () => {
                           )}
                         </th>
                         <th 
-                          style={{ width: '20%', minWidth: '200px', cursor: 'pointer' }} 
+                          style={{ width: '20%', minWidth: '200px', cursor: 'pointer', verticalAlign: 'top', paddingTop: '12px', paddingBottom: '0' }} 
                           onClick={() => handleSort('type')}
                           className="sortable-header"
                         >
@@ -780,7 +787,7 @@ export const Dashboard: React.FC = () => {
                           )}
                         </th>
                         <th 
-                          style={{ width: '13%', minWidth: '120px', cursor: 'pointer' }} 
+                          style={{ width: '13%', minWidth: '120px', cursor: 'pointer', verticalAlign: 'top', paddingTop: '12px', paddingBottom: '0' }} 
                           onClick={() => handleSort('resourceGroup')}
                           className="sortable-header"
                         >
@@ -792,7 +799,7 @@ export const Dashboard: React.FC = () => {
                           )}
                         </th>
                         <th 
-                          style={{ width: '10%', minWidth: '90px', cursor: 'pointer' }} 
+                          style={{ width: '10%', minWidth: '90px', cursor: 'pointer', verticalAlign: 'top', paddingTop: '12px', paddingBottom: '0' }} 
                           onClick={() => handleSort('location')}
                           className="sortable-header"
                         >
@@ -803,9 +810,24 @@ export const Dashboard: React.FC = () => {
                             </span>
                           )}
                         </th>
-                        <th style={{ width: '13%', minWidth: '110px' }}>Owners</th>
-                        <th style={{ width: '16%', minWidth: '160px' }}>Tags</th>
-                        <th style={{ width: '10%', minWidth: '80px' }}>Actions</th>
+                        <th style={{ width: '13%', minWidth: '110px', verticalAlign: 'top', paddingTop: '12px', paddingBottom: '0' }}>Owners</th>
+                        <th style={{ width: '16%', minWidth: '160px', textAlign: 'center', position: 'relative', paddingTop: '12px', paddingBottom: '0' }}>
+                          <div style={{ height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                            <span style={{ alignSelf: 'center' }}>Tags</span>
+                            <div style={{ alignSelf: 'center', marginTop: 'auto' }}>
+                              <Form.Check
+                                type="checkbox"
+                                id="empty-tags-filter"
+                                checked={showOnlyEmptyTags}
+                                onChange={(e) => setShowOnlyEmptyTags(e.target.checked)}
+                                label="Empty only"
+                                className="small mb-0"
+                                style={{ fontSize: '0.7rem', lineHeight: '1.2' }}
+                              />
+                            </div>
+                          </div>
+                        </th>
+                        <th style={{ width: '10%', minWidth: '80px', verticalAlign: 'top', paddingTop: '12px', paddingBottom: '0' }}>Actions</th>
                       </tr>
                     </thead>
                     <tbody>
